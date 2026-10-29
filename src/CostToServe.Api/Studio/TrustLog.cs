@@ -49,6 +49,9 @@ public sealed class TrustLog
         }
     }
 
+    /// <summary>Every user's turns, for totals only (never question text).</summary>
+    public IReadOnlyList<TrustTurn> All => _turns.ToArray();
+
     public IReadOnlyList<TrustTurn> For(string ownerId) =>
         _turns.Where(t => t.OwnerId == ownerId).OrderByDescending(t => t.At).ToArray();
 }

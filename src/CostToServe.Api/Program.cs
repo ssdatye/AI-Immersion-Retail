@@ -163,6 +163,12 @@ if (entra.IsConfigured)
 }
 
 app.MapStudio(entra, devPersonas, evaluationSummary);
+// The architecture document (public, no data), so the Trust Center can link to it from the studio.
+app.MapGet("/architecture", () =>
+{
+    var path = Path.Combine(AppContext.BaseDirectory, "trust", "architecture.html");
+    return File.Exists(path) ? Results.File(path, "text/html; charset=utf-8") : Results.NotFound();
+});
 app.MapFallback("/api/{**rest}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

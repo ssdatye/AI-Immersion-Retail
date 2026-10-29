@@ -112,12 +112,13 @@ def main() -> int:
         for key, label in JUDGES.items():
             c = Counter(judge_marks(items.get(r["id"])).get(key, ("skipped", {}))[0] for r in rows)
             lines.append(f"| {label} | {c['pass']} | {c['fail']} | {c['skipped']} |")
-        refusals = [r["id"] for r in rows
-                    if judge_marks(items.get(r["id"])).get("tool_call_accuracy", ("", {}))[0] == "fail" and expected_refusal(r)]
+        refusals = [(r["id"], key) for r in rows for key, (status, _) in judge_marks(items.get(r["id"])).items()
+                    if status == "fail" and expected_refusal(r)]
         if refusals:
-            lines += ["", f"Expected refusals: {len(refusals)} tool-call accuracy failures are decisions that the tools refused or "
-                          "the user declined by design (marked † below): Luis asking for another region, a role that may not take the step, the "
-                          "guardrail, or a declined confirmation. The agent behaved correctly; the judge scores the refused call down."]
+            lines += ["", f"Expected refusals: {len(refusals)} judge failures are in cases where the tools refused or "
+                          "the user declined by design (marked † below): Luis asking for another region, a role that may not take the step, "
+                          "an approval without a region, the guardrail, or a declined confirmation. Every deterministic check passed; "
+                          "the agent behaved correctly, and the judge scores the refused request down."]
         lines.append("")
 
     lines += ["### By persona", "", "| Persona | Cases | All deterministic checks pass | All judges pass |", "|---|---|---|---|"]
@@ -142,7 +143,7 @@ def main() -> int:
         checks = " ".join(MARK[r["checks"][k]["result"]] for k in CHECKS)
         marks = judge_marks(items.get(r["id"]))
         judges = " ".join({"pass": "✓", "fail": "✗"}.get(marks.get(k, ("skipped",))[0], "–") for k in JUDGES) if items else "not run"
-        if marks.get("tool_call_accuracy", ("",))[0] == "fail" and expected_refusal(r):
+        if any(m[0] == "fail" for m in marks.values()) and expected_refusal(r):
             judges += " †"
         calls = ", ".join(f"{c['name']}{'' if c['outcome'] == 'ok' else ' (' + c['outcome'] + ')'}" for c in r["tool_calls"]) or "none"
         n = r["checks"]["numeric_accuracy"]
@@ -166,7 +167,7 @@ def main() -> int:
             notes.append(f"{label}: {detail}")
         for key, (status, result) in judge_marks(items.get(r["id"])).items():
             if status == "fail":
-                prefix = "† expected refusal. " if key == "tool_call_accuracy" and expected_refusal(r) else ""
+                prefix = "† expected refusal. " if expected_refusal(r) else ""
                 reason = (result.get("reason") or "").strip()
                 notes.append(f"{JUDGES[key]} (score {result.get('score')}): {prefix}{reason[:280]}{'…' if len(reason) > 280 else ''}")
         if notes:
@@ -205,8 +206,32 @@ def main() -> int:
     return 0
 
 
+def case_row(row: dict, item: dict | None) -> dict:
+    """One acceptance test as the Trust Center lists it."""
+    marks = judge_marks(item)
+    grounded = row["checks"]["grounded_numbers"]
+    return {
+        "id": row["id"],
+        "persona": row["persona"],
+        "category": row["category"],
+        "question": row["query"],
+        "expectation": row.get("notes"),
+        "answer": row["response_text"],
+        "tools": [{"name": c["name"], "outcome": c["outcome"]} for c in row["tool_calls"]],
+        "checks": {key: row["checks"][key]["result"] for key in CHECKS},
+        "judges": {key: marks[key][0] for key in JUDGES if key in marks} if item else None,
+        "result": row["result"],
+        "refusalByDesign": expected_refusal(row),
+        "numbers": grounded.get("traced", []),
+        "unsupported": grounded["unsupported"],
+        "durationMs": row["duration_ms"],
+    }
+
+
 def write_summary(path: Path, rows: list[dict], run: dict, items: dict, foundry: dict | None) -> None:
-    """A compact summary the studio's Trust Center shows. Counts only: no answers, prompts or IDs."""
+    """The summary the studio's Trust Center shows: totals plus each question, answer and result.
+    No prompts, tool payloads or resource IDs (the Foundry evaluation and run IDs only work with the
+    project's resource ID, which the app reads from its settings)."""
     fixture = json.loads((REPO / "tests" / "CostToServe.Core.Tests" / "Fixtures" / "html-engine-golden.json").read_text())
     parity = sum(len(v) for k, v in fixture.items() if k.endswith("Cases"))
     checks = {key: {"label": label, **{k: sum(r["checks"][key]["result"] == k for r in rows) for k in ("pass", "fail", "n/a")}}
@@ -215,9 +240,13 @@ def write_summary(path: Path, rows: list[dict], run: dict, items: dict, foundry:
     if items:
         judges = {}
         for key, label in JUDGES.items():
-            c = Counter(judge_marks(items.get(r["id"])).get(key, ("skipped", {}))[0] for r in rows)
-            judges[key] = {"label": label, "pass": c["pass"], "fail": c["fail"], "skipped": c["skipped"]}
-    refusals = sum(1 for r in rows if judge_marks(items.get(r["id"])).get("tool_call_accuracy", ("", {}))[0] == "fail" and expected_refusal(r))
+            marks = [(judge_marks(items.get(r["id"])).get(key, ("skipped", {}))[0], r) for r in rows]
+            c = Counter(m for m, _ in marks)
+            # Fails in cases where a tool refused by design (or the person declined) and every deterministic check passed.
+            refused = sum(1 for m, r in marks if m == "fail" and expected_refusal(r))
+            judges[key] = {"label": label, "pass": c["pass"], "fail": c["fail"], "skipped": c["skipped"], "refusals": refused}
+    # Judge failures (any judge) in refusal-by-design cases.
+    refusals = sum(j["refusals"] for j in judges.values()) if judges else 0
     summary = {
         "runId": run["run_id"],
         "createdUtc": run["created_utc"],
@@ -233,7 +262,9 @@ def write_summary(path: Path, rows: list[dict], run: dict, items: dict, foundry:
         "numbersUnsupported": sum(len(r["checks"]["grounded_numbers"]["unsupported"]) for r in rows),
         "decisionCases": sum(r["checks"]["decision"]["result"] != "n/a" for r in rows),
         "engineParityCases": parity,
-        "foundry": {"project": "proj-evals", "judgeModel": foundry["model"], "status": foundry["status"]} if foundry else None,
+        "foundry": {"project": "proj-evals", "judgeModel": foundry["model"], "status": foundry["status"], "name": foundry.get("name"),
+                    "evalId": foundry.get("evalId"), "runId": foundry.get("runId")} if foundry else None,
+        "caseRows": [case_row(r, items.get(r["id"])) for r in rows],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")

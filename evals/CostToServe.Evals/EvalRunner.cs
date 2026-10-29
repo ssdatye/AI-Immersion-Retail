@@ -63,7 +63,7 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
         {
             ["tool_selection"] = ToolSelection(c, calls),
             ["numeric_accuracy"] = NumericAccuracy(expected, absent, quoted),
-            ["grounded_numbers"] = Grounded(quoted, sources),
+            ["grounded_numbers"] = Grounded(quoted, sources, NumberEvidence.Trace(text, calls.Select(call => (call.Name, call.Result)), c.Query, instructions)),
             ["decision"] = Decision(c.ExpectedDecision, log.ReadAll().Skip(setupCount).ToArray(), confirmer.Requests.Count),
         };
         var applicable = checks.Select(kv => kv.Value?["result"]?.GetValue<string>()).Where(r => r is "pass" or "fail").ToArray();
@@ -172,7 +172,7 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
         };
     }
 
-    private static JsonObject Grounded(IReadOnlyList<QuotedNumber> quoted, IReadOnlyCollection<double> sources)
+    private static JsonObject Grounded(IReadOnlyList<QuotedNumber> quoted, IReadOnlyCollection<double> sources, AnswerEvidence evidence)
     {
         var unsupported = EvalChecks.Unsupported(quoted, sources);
         return new JsonObject
@@ -180,6 +180,8 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
             ["result"] = unsupported.Count == 0 ? "pass" : "fail",
             ["quoted_count"] = quoted.Count,
             ["unsupported"] = new JsonArray(unsupported.Select(u => (JsonNode)u.Text).ToArray()),
+            // Where each number came from, as the studio's live receipt shows it (same NumberEvidence.Trace).
+            ["traced"] = new JsonArray(evidence.Numbers.Select(n => (JsonNode)new JsonObject { ["text"] = n.Text, ["source"] = n.Source }).ToArray()),
         };
     }
 

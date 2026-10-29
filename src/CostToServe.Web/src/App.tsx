@@ -249,7 +249,7 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
             </button>
           </nav>
           <div hidden={tab !== "trust"}>
-            <TrustCenter auth={auth} caller={dashboard.caller} visible={tab === "trust"} refreshKey={evidenceTick} />
+            <TrustCenter auth={auth} caller={dashboard.caller} visible={tab === "trust"} refreshKey={evidenceTick} onShowStudio={() => setTab("studio")} />
           </div>
           <main hidden={tab !== "studio"}>
             <div className="column">

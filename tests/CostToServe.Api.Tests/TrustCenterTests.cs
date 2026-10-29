@@ -37,6 +37,28 @@ public sealed class TrustCenterTests : IClassFixture<StudioFactory>
         Assert.Empty(trust.GetProperty("turns").EnumerateArray());
         Assert.False(trust.TryGetProperty("lastTrace", out var last) && last.ValueKind != JsonValueKind.Null);
         Assert.Equal("Microsoft.DefaultV2", trust.GetProperty("controls").GetProperty("contentFilter").GetString());
+        Assert.Equal(0, session.GetProperty("allUsers").GetProperty("answers").GetInt32());
+        Assert.Equal("/architecture", trust.GetProperty("links").GetProperty("architecture").GetString());
+    }
+
+    [Fact]
+    public async Task Evaluation_summary_lists_every_question_with_its_result()
+    {
+        var evaluation = (await _factory.As("luis").GetFromJsonAsync<JsonElement>("/api/trust")).GetProperty("evaluation");
+
+        var rows = evaluation.GetProperty("caseRows").EnumerateArray().ToArray();
+        Assert.Equal(evaluation.GetProperty("cases").GetInt32(), rows.Length);
+        Assert.All(rows, r => Assert.False(string.IsNullOrWhiteSpace(r.GetProperty("question").GetString())));
+        Assert.Contains(rows, r => r.GetProperty("refusalByDesign").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Architecture_document_is_served_without_sign_in()
+    {
+        var response = await _factory.CreateClient().GetAsync("/architecture");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
     }
 
     [Fact]
@@ -49,6 +71,10 @@ public sealed class TrustCenterTests : IClassFixture<StudioFactory>
         };
 
         Assert.Equal("https://ai.azure.com/nextgen/r/ABEiM0RVZneImaq7zN3u_w,rg-demo,,acct,proj-evals/build/evaluations", options.FoundryEvaluationsUrl());
+        Assert.Equal(
+            "https://ai.azure.com/nextgen/r/ABEiM0RVZneImaq7zN3u_w,rg-demo,,acct,proj-evals/build/evaluations/eval_1/run/evalrun_2",
+            options.FoundryRunUrl("eval_1", "evalrun_2"));
+        Assert.Null(options.FoundryRunUrl(null, "evalrun_2"));
         Assert.Null(new TrustOptions { FoundryProjectResourceId = "/subscriptions/not-a-guid" }.FoundryEvaluationsUrl());
         Assert.Null(new TrustOptions().AppInsightsSearchUrl());
     }

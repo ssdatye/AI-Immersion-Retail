@@ -224,6 +224,8 @@ export interface TrustCheck {
   fail: number;
   "n/a"?: number;
   skipped?: number;
+  /** Judge failures in cases where a tool refused by design or the person declined. */
+  refusals?: number;
 }
 
 export interface EvaluationSummary {
@@ -241,7 +243,27 @@ export interface EvaluationSummary {
   numbersUnsupported: number;
   decisionCases: number;
   engineParityCases: number;
-  foundry: { project: string; judgeModel: string; status: string } | null;
+  foundry: { project: string; judgeModel: string; status: string; name?: string | null; evalId?: string | null; runId?: string | null } | null;
+  /** One row per question asked in the run (older summaries have none). */
+  caseRows?: EvaluationCase[];
+}
+
+/** One acceptance test: the question, the agent's answer, and what each check and judge found. */
+export interface EvaluationCase {
+  id: string;
+  persona: string;
+  category: string;
+  question: string;
+  expectation?: string | null;
+  answer: string;
+  tools: { name: string; outcome: string }[];
+  checks: Record<string, string>;
+  judges: Record<string, string> | null;
+  result: string;
+  refusalByDesign: boolean;
+  numbers: { text: string; source: string | null }[];
+  unsupported: string[];
+  durationMs: number;
 }
 
 export interface TrustTurn {
@@ -279,9 +301,17 @@ export interface TrustData {
     answersTraced: number;
     medianMs: number | null;
     tokens: number;
+    toolCalls: number;
+    allUsers: { users: number; answers: number; numbersQuoted: number; numbersTraced: number; refusedByPolicy: number };
   };
   turns: TrustTurn[];
   lastTrace: { traceId: string; question: string; spans: TraceSpan[] } | null;
-  links: { foundryEvaluations?: string | null; appInsightsSearch?: string | null; report?: string | null };
+  links: {
+    foundryEvaluations?: string | null;
+    foundryRun?: string | null;
+    appInsightsSearch?: string | null;
+    report?: string | null;
+    architecture?: string | null;
+  };
   controls: { model: string; modelViaGateway: boolean; contentFilter: string; dataMode: string };
 }

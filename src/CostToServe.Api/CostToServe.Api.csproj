@@ -28,6 +28,7 @@
     <None Include="..\..\data\config\action-levers.csv" Link="config\action-levers.csv" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <!-- Latest evaluation summary for the Trust Center (CostToServe__EvalSummaryFile=trust/eval-summary.json). -->
     <None Include="..\..\docs\evals\summary.json" Link="trust\eval-summary.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" Condition="Exists('..\..\docs\evals\summary.json')" />
+    <None Include="..\..\docs\architecture\cost-to-serve-architecture.html" Link="trust\architecture.html" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

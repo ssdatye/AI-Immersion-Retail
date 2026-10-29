@@ -199,14 +199,23 @@ USD per gallon; duration is 1-13 weeks. Out-of-range input returns HTTP 400.
 
 ### Trust Center
 
-The **🛡 Trust Center** tab shows why the answers can be trusted: the last evaluation run
-(deterministic checks and Foundry judges), this session's live evidence for your own answers,
-how the latest answer was produced (request, agent, model and tool spans), and the controls
-in force. Under every agent answer, a receipt traces each quoted number to the tool field it
-came from, or shows that a request was refused by policy or logged after you confirmed.
+The **🛡 Trust Center** tab shows why the answers can be trusted, top to bottom:
 
-The evaluation figures come from `docs/evals/summary.json`. Run `./scripts/run-evals.sh`
-and redeploy to refresh them. See [ADR 006](docs/adr/006-trust-center.md).
+* **Frontier fit:** the five Frontier tests, each with its proof in the demo and a link to it,
+  and the four mandatory gates. The executive sponsor gate is shown as customer-owned.
+* **Acceptance tests:** the last evaluation run (deterministic checks and Foundry judges), its
+  source, a link to the run in Microsoft Foundry, and every question asked. Click a question to
+  see the agent's answer and where each number came from.
+* **Live since the demo reset:** your answers' evidence, totals for everyone, and how the latest
+  answer was produced (request, agent, model and tool spans).
+* **Controls in force**, and **assumptions and limits** with how each is validated.
+
+Under every agent answer, a receipt traces each quoted number to the tool field it came from, or
+shows that a request was refused by policy or logged after you confirmed.
+
+The acceptance tests come from `docs/evals/summary.json`, shipped with the app, so a demo reset
+keeps them. Run `./scripts/run-evals.sh` and redeploy to refresh them. The Foundry link opens
+for people with access to the demo subscription. See [ADR 006](docs/adr/006-trust-center.md).
 
 ## Test
 
@@ -348,8 +357,10 @@ file changed. It then restores only the files it manages in `data/local`, includ
 decision log and chat transcripts; other files are left alone.
 
 `./scripts/reset-demo.sh --target azure` deletes every decision and chat transcript in the
-demo's Cosmos DB; refresh the studio to see it. Seed facts in Azure SQL are not changed; reload
-them with `./scripts/seed-azure-sql.sh`.
+demo's Cosmos DB, then restarts the web app so the Trust Center's live view starts fresh, and
+waits until the studio is healthy (about a minute). Add `--no-restart` to skip the restart.
+Seed facts in Azure SQL and the acceptance tests are not changed; reload the facts with
+`./scripts/seed-azure-sql.sh`. For a local run, restart the API yourself to clear the live view.
 
 ## Data provenance
 

@@ -30,6 +30,12 @@ public sealed class TrustOptions
         return $"https://ai.azure.com/nextgen/r/{encoded},{parts[3]},,{parts[7]},{parts[9]}/build/evaluations";
     }
 
+    /// <summary>Deep link to one evaluation run in the Foundry portal.</summary>
+    public string? FoundryRunUrl(string? evalId, string? runId) =>
+        FoundryEvaluationsUrl() is { } list && !string.IsNullOrWhiteSpace(evalId) && !string.IsNullOrWhiteSpace(runId)
+            ? $"{list}/{Uri.EscapeDataString(evalId)}/run/{Uri.EscapeDataString(runId)}"
+            : null;
+
     public string? AppInsightsSearchUrl() =>
         string.IsNullOrWhiteSpace(AppInsightsResourceId) ? null : $"https://portal.azure.com/#resource{AppInsightsResourceId}/searchV1";
 }
@@ -49,6 +55,8 @@ public static class TrustEndpoints
             .Where(d => d.Timestamp >= s.Trust.StartedAt && caller.CanSee(d.EffectiveRegion))
             .ToArray();
         var latest = turns.FirstOrDefault(t => t.TraceId is not null && spans.Get(t.TraceId).Count > 0);
+        var everyone = s.Trust.All.Where(t => !t.Errored).ToArray();
+        var foundryRun = evaluation?["foundry"];
 
         return new
         {
@@ -66,6 +74,16 @@ public static class TrustEndpoints
                 AnswersTraced = answered.Count(t => t.TraceId is not null),
                 MedianMs = durations.Length == 0 ? (long?)null : (durations[(durations.Length - 1) / 2] + durations[durations.Length / 2]) / 2,
                 Tokens = answered.Sum(t => (t.InputTokens ?? 0) + (t.OutputTokens ?? 0)),
+                ToolCalls = answered.Sum(t => t.Tools.Count),
+                // Every signed-in user since the reset: counts only, no questions or answers.
+                AllUsers = new
+                {
+                    Users = everyone.Select(t => t.OwnerId).Distinct().Count(),
+                    Answers = everyone.Length,
+                    NumbersQuoted = everyone.Sum(t => t.Evidence.Quoted),
+                    NumbersTraced = everyone.Sum(t => t.Evidence.Traced),
+                    RefusedByPolicy = everyone.Sum(t => t.Tools.Count(c => c.Outcome is "scope_denied" or "conflict")),
+                },
             },
             Turns = turns.Take(25).Select(t => new
             {
@@ -84,6 +102,8 @@ public static class TrustEndpoints
             Links = new
             {
                 FoundryEvaluations = options.FoundryEvaluationsUrl(),
+                FoundryRun = options.FoundryRunUrl((string?)foundryRun?["evalId"], (string?)foundryRun?["runId"]),
+                Architecture = "/architecture",
                 AppInsightsSearch = options.AppInsightsSearchUrl(),
                 Report = options.ReportUrl,
             },

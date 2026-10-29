@@ -1,4 +1,4 @@
-import type { AnswerEvidence, TrustTurn } from "./types";
+import type { AnswerEvidence, EvaluationCase, TrustTurn } from "./types";
 
 /** Refusal by policy: the tool refused (scope, role, workflow or guardrail), not the model. */
 export const isRefusal = (outcome: string) => outcome === "scope_denied" || outcome === "conflict";
@@ -39,3 +39,22 @@ export function policyNote(tools: TrustTurn["tools"]): { tone: "ok" | "refused" 
 }
 
 export const seconds = (ms: number | null | undefined) => (ms == null ? "–" : `${(ms / 1000).toFixed(1)} s`);
+
+/** Pass, refusal by design, or failed: how one acceptance test reads in the Trust Center. */
+export function caseVerdict(c: Pick<EvaluationCase, "result" | "refusalByDesign">): { tone: "ok" | "expected" | "review"; text: string } {
+  if (c.result !== "pass") {
+    return { tone: "review", text: "Failed" };
+  }
+  return c.refusalByDesign ? { tone: "expected", text: "Passed · refused by design" } : { tone: "ok", text: "Passed" };
+}
+
+/** Status mark for one check or judge result. */
+export const mark = (result: string | undefined) => (result === "pass" ? "✓" : result === "fail" ? "✗" : "–");
+
+/** Filters the acceptance tests by persona or by refusals by design. */
+export function filterCases(cases: EvaluationCase[], filter: string): EvaluationCase[] {
+  if (filter === "refusals") {
+    return cases.filter((c) => c.refusalByDesign);
+  }
+  return filter === "all" ? cases : cases.filter((c) => c.persona === filter);
+}
