@@ -59,7 +59,9 @@ studio still validates the Entra token and app roles itself (ADR 003).
 * Cosmos DB (serverless, local auth disabled): `decisions` (partition `/actionId`, the
   decision log including settings), `threads` (one item per chat turn, partition
   `/ownerId`), and `scenarios`, reserved for saved scenarios and evaluation runs. The
-  studio caches decisions in memory and writes through, which is correct for one instance.
+  studio reads decisions from Cosmos on every request rather than caching them, so an Azure
+  reset shows on the next page refresh. (A first version cached them until restart, and a
+  refresh right after a reset still showed the old decisions.)
 * CSV mode keeps working for local development. It now also writes chat turns to
   `data/local/chat_transcripts.jsonl`, and reset clears that file.
 
@@ -167,5 +169,5 @@ exist, whether or not anyone uses the demo.
   are reviewed in this ADR rather than in the preview.
 * After provisioning, the Entra app registration needs the studio URL as an SPA redirect
   URI (`./scripts/setup-entra.sh --redirect-uri https://<apim>.azure-api.net`).
-* The decision cache assumes one App Service instance. Scaling out needs Cosmos reads per
-  request or a change feed.
+* Decisions are read per request, so scaling out needs no change for them. Chat conversations
+  are still in memory per instance.

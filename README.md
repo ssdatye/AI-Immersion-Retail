@@ -302,7 +302,7 @@ file changed. It then restores only the files it manages in `data/local`, includ
 decision log and chat transcripts; other files are left alone.
 
 `./scripts/reset-demo.sh --target azure` deletes every decision and chat transcript in the
-demo's Cosmos DB and restarts the web app. Seed facts in Azure SQL are not changed; reload
+demo's Cosmos DB; refresh the studio to see it. Seed facts in Azure SQL are not changed; reload
 them with `./scripts/seed-azure-sql.sh`.
 
 ## Data provenance

@@ -58,7 +58,7 @@ internal static class ResetCommand
             try
             {
                 var (decisions, threads) = azure.Clear();
-                output.WriteLine($"Done. Deleted {decisions} decisions and {threads} transcripts. Restart the web app to clear its cache.");
+                output.WriteLine($"Done. Deleted {decisions} decisions and {threads} transcripts. Refresh the studio to see the change.");
                 return 0;
             }
             catch (Exception ex)

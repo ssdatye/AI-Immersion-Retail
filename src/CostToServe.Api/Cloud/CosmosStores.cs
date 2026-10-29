@@ -73,51 +73,34 @@ public sealed class CosmosStores : IDisposable
 }
 
 /// <summary>
-/// Decision log in Cosmos. All decisions are read once at startup and cached; appends write to
-/// Cosmos first, then the cache. The demo runs on one App Service instance, so the cache is the
-/// single writer's view.
+/// Decision log in Cosmos, read through on every call so changes made outside this instance
+/// (another instance, or ./scripts/reset-demo.sh --target azure) show up on the next request.
+/// The log is a few dozen small items, so a read costs a few request units.
 /// </summary>
-public sealed class CosmosDecisionLog : IDecisionLog
+public sealed class CosmosDecisionLog(Container container) : IDecisionLog
 {
-    private readonly Container _container;
-    private readonly List<DecisionEntry> _cache;
-    private readonly Lock _gate = new();
+    public static Task<CosmosDecisionLog> LoadAsync(CosmosStores stores, CancellationToken ct = default) =>
+        Task.FromResult(new CosmosDecisionLog(stores.Decisions));
 
-    private CosmosDecisionLog(Container container, List<DecisionEntry> cache)
-    {
-        _container = container;
-        _cache = cache;
-    }
+    // IDecisionLog is synchronous; ASP.NET Core has no synchronization context, so blocking cannot deadlock.
+    public IReadOnlyList<DecisionEntry> ReadAll() => ReadAllAsync(CancellationToken.None).GetAwaiter().GetResult();
 
-    public static async Task<CosmosDecisionLog> LoadAsync(CosmosStores stores, CancellationToken ct = default)
+    public async Task<IReadOnlyList<DecisionEntry>> ReadAllAsync(CancellationToken ct)
     {
         var entries = new List<DecisionEntry>();
-        using var feed = stores.Decisions.GetItemQueryIterator<DecisionDocument>("SELECT * FROM c");
+        using var feed = container.GetItemQueryIterator<DecisionDocument>("SELECT * FROM c");
         while (feed.HasMoreResults)
         {
             entries.AddRange((await feed.ReadNextAsync(ct).ConfigureAwait(false)).Select(d => d.ToEntry()));
         }
 
-        return new CosmosDecisionLog(stores.Decisions, entries.OrderBy(e => e.Timestamp).ToList());
-    }
-
-    public IReadOnlyList<DecisionEntry> ReadAll()
-    {
-        lock (_gate)
-        {
-            return _cache.ToArray();
-        }
+        return entries.OrderBy(e => e.Timestamp).ToArray();
     }
 
     public void Append(DecisionEntry entry)
     {
         var doc = DecisionDocument.From(entry);
-        // IDecisionLog is synchronous; ASP.NET Core has no synchronization context, so this cannot deadlock.
-        _container.CreateItemAsync(doc, new PartitionKey(doc.ActionId)).GetAwaiter().GetResult();
-        lock (_gate)
-        {
-            _cache.Add(entry);
-        }
+        container.CreateItemAsync(doc, new PartitionKey(doc.ActionId)).GetAwaiter().GetResult();
     }
 
     public sealed class DecisionDocument
