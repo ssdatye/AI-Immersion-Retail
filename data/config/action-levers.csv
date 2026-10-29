@@ -1,0 +1,7 @@
+action_id,batch,closer,split,pickup,fee,basket,cap,source
+A1,0.35,0,0,0,0,false,false,reference demo (ACT list)
+A2,0,0.2,0,0,0,false,false,reference demo (ACT list)
+A3,0,0,0,0,0,true,false,reference demo (ACT list)
+A4,0,0,0.4,0,0,false,false,derived from playbook effect text (-40% split-shipment rate)
+A5,0,0,0,0,0,false,true,derived from playbook effect text (surcharge capped at contract index)
+A6,0,0,0,0.03,0,false,false,derived from playbook effect text (shift 3% to Pickup)

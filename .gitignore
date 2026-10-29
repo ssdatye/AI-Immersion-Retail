@@ -1,0 +1,37 @@
+# .NET build output
+bin/
+obj/
+TestResults/
+*.user
+
+# Node
+node_modules/
+
+# Local secrets and environment files (never commit)
+.env
+.env.*
+*.local.json
+secrets/
+
+# Local demo state (recreated by the reset command)
+data/local/
+
+# Sensitivity-labeled (Confidential - Internal Only, encrypted) reference workbook: keep local, never publish.
+# The same data is in data/seed as plain CSVs.
+docs/reference/*.xlsx
+
+# Original reference folder (copied into docs/reference and data/seed; some files are marked INTERNAL)
+Reference /
+
+# OS and editor noise
+.DS_Store
+.idea/
+
+# Generated local settings (endpoints from deployment outputs)
+appsettings.Local.json
+
+# Front-end build output (Vite builds into the API)
+src/CostToServe.Api/wwwroot/
+
+# Browser automation artifacts
+.playwright-mcp/

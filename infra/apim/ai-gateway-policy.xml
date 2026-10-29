@@ -1,0 +1,42 @@
+<!--
+  AI gateway: studio -> APIM -> Foundry model. Adapted from the MafTracingPoc reference
+  (apim/ai-gateway-policy.xml).
+
+  Only the studio's managed identity may call: its Entra token (audience Cognitive Services)
+  is validated here, then replaced by APIM's own managed identity token toward Foundry.
+  No keys exist anywhere in the chain. Named values: tenant-id, studio-client-id.
+
+  Never log Authorization headers, prompts, responses, or bodies from this policy.
+-->
+<policies>
+  <inbound>
+    <base />
+    <validate-azure-ad-token tenant-id="{{tenant-id}}" header-name="Authorization" failed-validation-httpcode="401">
+      <client-application-ids>
+        <application-id>{{studio-client-id}}</application-id>
+      </client-application-ids>
+      <audiences>
+        <audience>https://cognitiveservices.azure.com</audience>
+      </audiences>
+    </validate-azure-ad-token>
+    <set-header name="baggage" exists-action="delete" />
+    <trace source="ai-gateway" severity="information">
+      <message>[STUDIO-TO-AIGATEWAY] Model request from the studio identity</message>
+    </trace>
+    <authentication-managed-identity resource="https://cognitiveservices.azure.com" ignore-error="false" />
+    <!-- Governance ceiling below the deployment's TPM quota; the prompt estimator is off to avoid false 429s. -->
+    <llm-token-limit counter-key="studio" tokens-per-minute="30000" estimate-prompt-tokens="false" remaining-tokens-header-name="x-ratelimit-remaining-tokens" />
+  </inbound>
+  <backend>
+    <forward-request buffer-response="false" timeout="300" />
+  </backend>
+  <outbound>
+    <base />
+    <trace source="ai-gateway" severity="information">
+      <message>[FOUNDRY-TO-AIGATEWAY] Model response returned to the studio</message>
+    </trace>
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

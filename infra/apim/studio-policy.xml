@@ -1,0 +1,36 @@
+<!--
+  Front gate: browser -> APIM -> studio (App Service). Serves the What-If Studio and its API.
+  The App Service accepts traffic only from this gateway's IP. The studio itself validates the
+  Entra access token and app roles; this gate adds per-IP rate limits and trace markers.
+  Adapted from the MafTracingPoc reference (apim/application-api-policy.xml).
+
+  Never log headers, query strings, or bodies here. traceparent/tracestate pass through
+  untouched (W3C correlation is enabled on the diagnostics); caller baggage is dropped.
+-->
+<policies>
+  <inbound>
+    <base />
+    <trace source="studio-gateway" severity="information">
+      <message>@($"[BROWSER-TO-APIM] {context.Request.Method} {context.Request.Url.Path}")</message>
+    </trace>
+    <set-header name="baggage" exists-action="delete" />
+    <choose>
+      <when condition='@(context.Request.Url.Path.StartsWith("/api/chat"))'>
+        <rate-limit-by-key calls="20" renewal-period="60" counter-key='@("chat:" + context.Request.IpAddress)' />
+      </when>
+      <when condition='@(context.Request.Url.Path.StartsWith("/api/"))'>
+        <rate-limit-by-key calls="600" renewal-period="60" counter-key='@("api:" + context.Request.IpAddress)' />
+      </when>
+    </choose>
+  </inbound>
+  <backend>
+    <!-- Chat replies stream as server-sent events; do not buffer them. -->
+    <forward-request buffer-response="false" timeout="300" />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

@@ -1,0 +1,4 @@
+date,event_type,region,expected_diesel_effect_usd_gal,credibility
+2026-10-17,Refinery outage (illustrative),Southeast,+0.25 to +0.40,High (multiple sources)
+2026-10-18,Regional conflict disrupting crude shipping (illustrative),All,+0.10 to +0.30,Medium (developing)
+2026-10-02,Seasonal blend switch (illustrative),All,-0.05,High

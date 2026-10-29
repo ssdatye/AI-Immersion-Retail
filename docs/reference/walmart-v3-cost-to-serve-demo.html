@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en-US" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Fuel &amp; Cost-to-Serve Intelligence: Interactive Demo (Illustrative)</title>
+<style>
+:root{--bg:#f4f6fa;--paper:#fff;--ink:#16213a;--muted:#5b6479;--line:#dde3ee;--blue:#0071ce;--navy:#041e42;--spark:#ffc220;--green:#2a8703;--red:#c8102e;--amber:#b35c00;--sb:#e8f1fb;--sy:#fff6d6;--sg:#e8f5e2;--sr:#fdeaec;--sa:#fff0df;--teams:#5b5fc7;--shadow:0 4px 18px rgba(20,30,60,.08)}
+@media (prefers-color-scheme: dark){:root{--bg:#0d1322;--paper:#161d30;--ink:#e8ecf5;--muted:#a6aec2;--line:#2b3450;--blue:#5aa9ff;--navy:#9cc3ff;--spark:#ffd45c;--green:#6cc04a;--red:#ff6b7d;--amber:#ffaa55;--sb:#1b2a48;--sy:#3a3217;--sg:#1c3320;--sr:#3d1d25;--sa:#3a2a17;--teams:#8b8ff0;--shadow:0 4px 18px rgba(0,0,0,.35)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Segoe UI",system-ui,-apple-system,Arial,sans-serif;font-size:14px;line-height:1.45}
+header{background:linear-gradient(135deg,#041e42,#0071ce);color:#fff;padding:14px 22px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+header h1{font-size:19px;margin:0}
+.badge{background:var(--spark);color:#16213a;font-weight:800;font-size:11px;padding:3px 10px;border-radius:999px;text-transform:uppercase;letter-spacing:.06em}
+.tabs{display:flex;gap:6px}
+.tabs button{border:0;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;background:rgba(255,255,255,.18);color:#fff;font-size:14px}
+.tabs button[aria-selected="true"]{background:#fff;color:#041e42}
+main{padding:16px 22px 30px;max-width:1400px;margin-inline:auto}
+.hidden{display:none!important}
+/* walkthrough */
+.stepper{display:flex;align-items:center;gap:10px;margin-block-end:12px;flex-wrap:wrap}
+.dots{display:flex;gap:6px;flex-wrap:wrap}
+.dot{border:1px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
+.dot[aria-current="step"]{background:var(--blue);color:#fff;border-color:var(--blue)}
+.navbtn{border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer;background:var(--blue);color:#fff}
+.navbtn.sec{background:var(--paper);color:var(--ink);border:1px solid var(--line)}
+.navbtn:disabled{opacity:.4;cursor:default}
+.cols{display:grid;grid-template-columns:1fr 1.25fr 1.35fr;gap:14px;align-items:start}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);padding:14px;min-height:420px}
+.ph{display:flex;align-items:center;gap:8px;font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-block-end:10px}
+.ph .ic{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;color:#fff;font-size:13px}
+.ic.p{background:var(--blue)}.ic.a{background:var(--navy)}.ic.d{background:var(--green)}
+@media (prefers-color-scheme: dark){.ic.a{background:#2c4a80}}
+.who{display:flex;gap:10px;align-items:center;margin-block-end:10px}
+.av{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;color:#fff;flex:none}
+.av.dana{background:#0071ce}.av.luis{background:#2a8703}.av.agent{background:#041e42}
+@media (prefers-color-scheme: dark){.av.agent{background:#2c4a80}}
+.nm{font-weight:800}.rl{font-size:12px;color:var(--muted)}
+.bubble{border-radius:14px;padding:10px 12px;margin-block:8px;max-width:95%}
+.bubble.user{background:var(--sb);margin-inline-start:auto}
+.bubble.agent{background:var(--gr,#eef0f5);border:1px solid var(--line)}
+@media (prefers-color-scheme: dark){.bubble.agent{background:#1f2740}}
+.teams{border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.teams .bar{background:var(--teams);color:#fff;font-size:12px;padding:6px 10px;font-weight:700}
+.teams .body{padding:10px}
+.alert{border-inline-start:5px solid var(--red);background:var(--sr);padding:10px;border-radius:8px}
+.steps{list-style:none;padding:0;margin:8px 0}
+.steps li{display:flex;gap:8px;align-items:flex-start;padding:6px 8px;border-radius:8px;margin-block-end:4px;background:var(--sb);font-size:13px}
+.steps li .k{font-weight:800;color:var(--blue);min-width:18px}
+.steps li.tool{background:var(--sy)}
+.thinking .steps{display:block}
+.thinkoff .steps{display:none}
+.kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-block:8px}
+.kpi{background:var(--sb);border-radius:10px;padding:8px 10px}
+.kpi .v{font-size:20px;font-weight:800;color:var(--blue)}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi.bad .v{color:var(--red)}.kpi.good .v{color:var(--green)}
+.card{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-block-end:10px;background:var(--paper)}
+.card h4{margin:0 0 4px;font-size:14px}
+.tag{display:inline-block;font-size:11px;font-weight:800;border-radius:999px;padding:2px 8px}
+.tag.lo{background:var(--sg);color:var(--green)}.tag.md{background:var(--sa);color:var(--amber)}.tag.hi{background:var(--sr);color:var(--red)}
+.approve{display:flex;gap:6px;margin-block-start:8px;flex-wrap:wrap}
+.approve button{border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);padding:6px 12px;cursor:pointer;font-weight:700}
+.approve button.on.acc{background:var(--green);color:#fff;border-color:var(--green)}
+.approve button.on.rej{background:var(--red);color:#fff;border-color:var(--red)}
+.approve input{flex:1;min-width:160px;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--paper);color:var(--ink)}
+table.t{width:100%;border-collapse:collapse;font-size:12.5px}
+table.t th,table.t td{border-block-end:1px solid var(--line);padding:5px 6px;text-align:start}
+table.t th{color:var(--muted);font-weight:600}
+.num{text-align:end!important;font-variant-numeric:tabular-nums}
+.up{color:var(--red);font-weight:700}.down{color:var(--green);font-weight:700}
+.notes{margin-block-start:12px;background:var(--paper);border:1px dashed var(--line);border-radius:12px;padding:10px 14px}
+.notes summary{cursor:pointer;font-weight:700}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.flow .s{background:var(--sb);border-radius:10px;padding:8px 10px;font-weight:700;font-size:13px}
+.flow .arr{color:var(--muted)}
+.label{font-size:11px;color:var(--muted)}
+.switch{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer}
+/* studio */
+.studio{display:grid;grid-template-columns:1.25fr 1fr;grid-template-rows:auto auto;gap:14px}
+.studio .market{grid-column:1}.studio .outcomes{grid-column:2;grid-row:1 / span 2}.studio .levers{grid-column:1}
+.studio .chat{grid-column:1 / span 2}
+.ctrl{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;margin-block-end:10px}
+.ctrl label{font-weight:600;font-size:13px}
+.ctrl output{font-weight:800;color:var(--blue);font-variant-numeric:tabular-nums}
+.ctrl input[type=range]{grid-column:1 / span 2;width:100%;accent-color:var(--blue)}
+.ctrl .hint{grid-column:1 / span 2;font-size:11.5px;color:var(--muted)}
+.presets{display:flex;gap:6px;flex-wrap:wrap;margin-block:6px 10px}
+.presets button,.chips button{border:1px solid var(--line);background:var(--sb);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer;font-size:12.5px;font-weight:600}
+.lgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px}
+.chk{display:flex;gap:8px;align-items:center;font-weight:600;font-size:13px;margin-block-end:10px}
+.big{font-size:28px;font-weight:800}
+.warn{background:var(--sr);border-inline-start:4px solid var(--red);padding:6px 10px;border-radius:6px;margin-block-end:6px;font-size:13px}
+.ok{background:var(--sg);border-inline-start:4px solid var(--green);padding:6px 10px;border-radius:6px;margin-block-end:6px;font-size:13px}
+.meter{height:10px;background:var(--line);border-radius:6px;overflow:hidden;margin-block:3px 8px}
+.meter i{display:block;height:100%}
+.chatlog{height:230px;overflow-y:auto;border:1px solid var(--line);border-radius:10px;padding:8px;background:var(--bg)}
+.chatin{display:flex;gap:8px;margin-block-start:8px}
+.chatin input{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px;background:var(--paper);color:var(--ink)}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-block-start:8px}
+.applybtn{margin-block-start:6px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.formula{font-family:Consolas,monospace;font-size:12px;background:var(--bg);border-radius:8px;padding:8px;white-space:pre-wrap}
+footer{padding:10px 22px 24px;color:var(--muted);font-size:12px;max-width:1400px;margin-inline:auto}
+svg text{font-family:"Segoe UI",system-ui,Arial,sans-serif}
+@media (max-width:1000px){.cols,.studio{grid-template-columns:1fr}.studio .market,.studio .outcomes,.studio .levers,.studio .chat{grid-column:1;grid-row:auto}}
+@media print{header .tabs,.stepper,.chatin,.chips{display:none}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Fuel &amp; Cost-to-Serve Intelligence</h1><div style="font-size:12.5px;opacity:.9">An AI agent that helps people see and act on fuel-driven delivery cost, every day</div></div>
+  <span class="badge">Illustrative data · demo only</span>
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tab-walk" aria-selected="true" aria-controls="walk">1 · Walk-through</button>
+    <button role="tab" id="tab-studio" aria-selected="false" aria-controls="studio">2 · What-if studio</button>
+  </div>
+</header>
+<main>
+<!-- WALKTHROUGH -->
+<section id="walk" role="tabpanel" aria-labelledby="tab-walk">
+  <div class="stepper">
+    <button class="navbtn sec" id="prev">◀ Back</button>
+    <div class="dots" id="dots"></div>
+    <button class="navbtn" id="next">Next ▶</button>
+    <label class="switch"><input type="checkbox" id="thinkToggle" checked> Show agent thinking</label>
+  </div>
+  <div class="cols">
+    <div class="panel" id="pPerson"></div>
+    <div class="panel thinking" id="pAgent"></div>
+    <div class="panel" id="pData"></div>
+  </div>
+  <details class="notes" open><summary>Presenter notes</summary><div id="notes"></div></details>
+</section>
+<!-- STUDIO -->
+<section id="studio" class="hidden" role="tabpanel" aria-labelledby="tab-studio">
+  <div class="studio">
+    <div class="panel market">
+      <div class="ph"><span class="ic d">⛽</span>A · Fuel market</div>
+      <div id="fuelChart"></div>
+      <div class="presets"><span class="label" style="align-self:center">Presets:</span>
+        <button data-preset="calm">Calm market</button><button data-preset="refinery">Refinery outage</button><button data-preset="conflict">Shipping disruption (regional conflict)</button><button data-preset="reset">Reset</button></div>
+      <div class="lgrid">
+        <div class="ctrl"><label for="dShift">Diesel price change vs today</label><output id="oShift"></output><input type="range" id="dShift" min="-0.5" max="1" step="0.05" value="0"><span class="hint">Today's Southeast diesel ≈ $<span id="todayDiesel"></span>/gal</span></div>
+        <div class="ctrl"><label for="dDur">How long it lasts</label><output id="oDur"></output><input type="range" id="dDur" min="1" max="13" step="1" value="8"><span class="hint">Weeks within the next 13-week quarter</span></div>
+      </div>
+    </div>
+    <div class="panel outcomes">
+      <div class="ph"><span class="ic a">📊</span>C · Outcomes (next 13 weeks)</div>
+      <div id="outcomes"></div>
+    </div>
+    <div class="panel levers">
+      <div class="ph"><span class="ic p">🎚️</span>B · Operating levers</div>
+      <div class="lgrid">
+        <div class="ctrl"><label for="lBatch">Express orders in batched 2-hour windows</label><output id="oBatch"></output><input type="range" id="lBatch" min="0" max="0.6" step="0.05" value="0"><span class="hint">More orders per route; fewer under-3-hour deliveries</span></div>
+        <div class="ctrl"><label for="lCloser">Orders filled from a closer store</label><output id="oCloser"></output><input type="range" id="lCloser" min="0" max="0.4" step="0.05" value="0"><span class="hint">Fewer miles per order (needs stock at that store)</span></div>
+        <div class="ctrl"><label for="lSplit">Fewer split shipments</label><output id="oSplit"></output><input type="range" id="lSplit" min="0" max="0.6" step="0.05" value="0"><span class="hint">Ship items together when the promise allows</span></div>
+        <div class="ctrl"><label for="lPickup">Shoppers nudged to Pickup</label><output id="oPickup"></output><input type="range" id="lPickup" min="0" max="0.1" step="0.01" value="0"><span class="hint">Small opt-in incentive (~$0.75 per order)</span></div>
+        <div class="ctrl"><label for="lFee">Express fee change</label><output id="oFee"></output><input type="range" id="lFee" min="-1" max="3" step="0.25" value="0"><span class="hint">Fee revenue offsets cost; demand falls ~4% per +$1</span></div>
+        <div>
+          <label class="chk"><input type="checkbox" id="lBasket"> Minimum basket for Express in rural zips</label>
+          <label class="chk"><input type="checkbox" id="lCap"> Enforce index-based cap on carrier fuel surcharges</label>
+          <div class="label">Prices on shelves never change in this model: one price for every shopper in a store.</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel chat" style="min-height:auto">
+      <div class="ph"><span class="ic a">🤖</span>D · Talk to the agent</div>
+      <div class="chatlog" id="chatlog" aria-live="polite"></div>
+      <div class="chatin"><input id="chatq" placeholder="Ask, e.g. “What if diesel rises $0.50 for 8 weeks?”" aria-label="Ask the agent"><button class="navbtn" id="chatsend">Ask</button></div>
+      <div class="chips" id="chips"></div>
+    </div>
+  </div>
+</section>
+</main>
+<footer>
+  <b>Illustrative demo.</b> All data is made up for this walk-through: 3 regions, 20 zones, 6 weeks of history, a 13-week outlook. It is not Walmart data and contains no internal information. Market events are generic examples. Values are scenario estimates from the formulas shown, not forecasts. Rule of thumb for scale: about $70M of operating profit equals 0.01% of Walmart's FY26 operating margin (on $706.4B net sales). People (Dana, Luis) are illustrative composites. The agent recommends; people decide.
+</footer>
+<script id="data" type="application/json">{"dates":["2026-09-14","2026-09-15","2026-09-16","2026-09-17","2026-09-18","2026-09-19","2026-09-20","2026-09-21","2026-09-22","2026-09-23","2026-09-24","2026-09-25","2026-09-26","2026-09-27","2026-09-28","2026-09-29","2026-09-30","2026-10-01","2026-10-02","2026-10-03","2026-10-04","2026-10-05","2026-10-06","2026-10-07","2026-10-08","2026-10-09","2026-10-10","2026-10-11","2026-10-12","2026-10-13","2026-10-14","2026-10-15","2026-10-16","2026-10-17","2026-10-18","2026-10-19","2026-10-20","2026-10-21","2026-10-22","2026-10-23","2026-10-24","2026-10-25"],"fuel":{"Southeast":[3.675,3.641,3.665,3.683,3.645,3.661,3.653,3.673,3.663,3.681,3.678,3.701,3.693,3.703,3.669,3.701,3.674,3.699,3.706,3.668,3.689,3.693,3.69,3.681,3.714,3.719,3.679,3.725,3.687,3.701,3.728,3.702,3.706,3.692,3.689,4.142,4.184,4.167,4.176,4.193,4.189,4.177],"Midwest":[3.712,3.739,3.717,3.735,3.706,3.716,3.712,3.748,3.718,3.754,3.739,3.716,3.716,3.715,3.722,3.743,3.749,3.721,3.737,3.727,3.738,3.737,3.734,3.733,3.743,3.756,3.755,3.756,3.758,3.766,3.782,3.76,3.791,3.793,3.771,4.157,4.159,4.141,4.148,4.137,4.153,4.169],"West":[4.203,4.197,4.199,4.171,4.193,4.195,4.213,4.177,4.211,4.182,4.19,4.177,4.223,4.209,4.199,4.223,4.217,4.181,4.226,4.222,4.206,4.236,4.205,4.201,4.202,4.233,4.23,4.239,4.209,4.248,4.224,4.215,4.231,4.232,4.214,4.579,4.59,4.582,4.576,4.587,4.617,4.617]},"gas":{"Southeast":[3.263,3.205,3.264,3.266,3.214,3.229,3.242,3.26,3.234,3.257,3.249,3.281,3.27,3.297,3.255,3.272,3.26,3.28,3.299,3.247,3.271,3.282,3.271,3.25,3.277,3.302,3.256,3.289,3.265,3.295,3.325,3.264,3.283,3.264,3.272,3.709,3.754,3.764,3.748,3.793,3.784,3.776],"Midwest":[3.278,3.323,3.299,3.297,3.277,3.313,3.287,3.339,3.316,3.332,3.335,3.278,3.291,3.304,3.299,3.31,3.315,3.294,3.299,3.317,3.333,3.309,3.303,3.318,3.33,3.347,3.334,3.33,3.329,3.328,3.349,3.359,3.391,3.376,3.365,3.744,3.744,3.73,3.738,3.706,3.719,3.729],"West":[3.776,3.786,3.784,3.743,3.768,3.779,3.799,3.738,3.784,3.752,3.759,3.762,3.804,3.79,3.797,3.818,3.799,3.778,3.824,3.787,3.774,3.822,3.789,3.797,3.767,3.801,3.817,3.809,3.806,3.841,3.793,3.806,3.82,3.822,3.812,4.144,4.173,4.158,4.154,4.184,4.205,4.189]},"cpo":{"Southeast":{"Pickup":[3.19,3.21,3.23,3.22,3.22,3.22,3.23,3.22,3.23,3.21,3.21,3.23,3.21,3.22,3.23,3.23,3.23,3.22,3.23,3.21,3.23,3.22,3.23,3.21,3.21,3.21,3.23,3.22,3.21,3.23,3.21,3.22,3.23,3.22,3.22,3.23,3.23,3.24,3.24,3.24,3.22,3.24],"Same-day":[10.55,10.7,10.51,10.74,10.75,10.53,10.6,10.63,10.76,10.68,10.61,10.72,10.81,10.77,10.7,10.71,10.66,10.6,10.47,10.63,10.62,10.58,10.64,10.58,10.7,10.69,10.7,10.65,10.61,10.7,10.7,10.57,10.64,10.52,10.67,11.13,11.17,11.11,11.15,11.06,11.25,11.05],"Express":[15.52,15.57,15.38,15.35,15.38,15.54,15.25,15.6,15.49,15.56,15.48,15.61,15.64,15.5,15.54,15.48,15.38,15.48,15.65,15.29,15.62,15.61,15.54,15.4,15.46,15.64,15.38,15.56,15.63,15.55,15.55,15.55,15.55,15.42,15.7,16.92,16.89,17.0,17.08,17.14,16.82,17.18],"Shipped":[6.23,6.23,6.27,6.26,6.22,6.23,6.24,6.23,6.25,6.24,6.25,6.24,6.25,6.26,6.23,6.27,6.25,6.25,6.28,6.26,6.27,6.27,6.22,6.25,6.25,6.27,6.24,6.27,6.25,6.25,6.29,6.25,6.27,6.27,6.25,6.39,6.41,6.42,6.41,6.42,6.41,6.42]},"Midwest":{"Pickup":[3.2,3.2,3.21,3.24,3.23,3.22,3.22,3.21,3.2,3.21,3.21,3.22,3.24,3.25,3.24,3.24,3.23,3.21,3.22,3.23,3.24,3.24,3.25,3.22,3.22,3.22,3.25,3.23,3.23,3.22,3.24,3.21,3.22,3.21,3.22,3.23,3.21,3.25,3.22,3.24,3.25,3.23],"Same-day":[11.19,11.3,11.24,11.43,11.3,11.4,11.24,11.32,11.44,11.32,11.59,11.37,11.39,11.45,11.3,11.42,11.5,11.4,11.18,11.4,11.36,11.46,11.42,11.41,11.39,11.24,11.35,11.51,11.44,11.23,11.46,11.37,11.44,11.33,11.54,11.85,11.88,11.84,11.7,11.74,11.75,11.75],"Express":[16.77,16.74,16.72,16.61,16.43,16.59,16.72,16.67,16.52,16.76,16.63,16.48,16.46,16.53,16.49,16.61,16.64,16.46,16.44,16.54,16.5,16.82,16.45,16.74,16.85,16.65,16.43,16.78,16.67,16.87,16.73,16.73,16.9,16.83,16.76,17.43,17.55,17.18,17.45,17.32,17.41,17.27],"Shipped":[6.26,6.29,6.25,6.25,6.26,6.24,6.25,6.24,6.24,6.28,6.29,6.25,6.26,6.26,6.27,6.28,6.26,6.28,6.27,6.28,6.24,6.27,6.29,6.27,6.26,6.26,6.29,6.27,6.26,6.29,6.28,6.26,6.29,6.28,6.28,6.41,6.41,6.4,6.4,6.4,6.39,6.41]},"West":{"Pickup":[3.23,3.23,3.26,3.22,3.24,3.22,3.23,3.24,3.24,3.25,3.26,3.24,3.27,3.23,3.26,3.24,3.23,3.24,3.25,3.25,3.23,3.24,3.26,3.21,3.24,3.24,3.23,3.25,3.25,3.23,3.24,3.25,3.26,3.22,3.23,3.23,3.27,3.25,3.25,3.24,3.26,3.24],"Same-day":[9.74,9.62,9.44,9.61,9.52,9.37,9.57,9.52,9.6,9.59,9.56,9.78,9.66,9.45,9.45,9.6,9.64,9.64,9.63,9.71,9.58,9.64,9.59,9.65,9.57,9.62,9.5,9.59,9.46,9.65,9.56,9.61,9.67,9.47,9.61,9.75,9.87,9.78,9.8,9.97,9.79,9.92],"Express":[14.17,14.23,14.16,14.3,14.34,14.19,14.03,14.19,14.29,14.19,14.22,14.14,14.17,14.22,14.33,14.26,14.16,14.07,14.27,14.2,14.29,14.36,14.13,14.27,14.07,14.31,14.17,14.37,14.17,14.42,14.47,14.31,14.19,14.34,14.43,14.67,14.69,14.75,14.87,14.89,14.92,14.77],"Shipped":[6.41,6.44,6.42,6.39,6.42,6.41,6.4,6.41,6.43,6.42,6.42,6.39,6.43,6.41,6.42,6.43,6.45,6.41,6.42,6.43,6.39,6.43,6.39,6.4,6.43,6.43,6.43,6.44,6.43,6.41,6.43,6.42,6.4,6.44,6.43,6.57,6.55,6.57,6.53,6.54,6.55,6.58]}},"base":{"5":{"Southeast":{"Pickup":{"orders":1138290,"split":0.0601,"die":3.701},"Same-day":{"orders":654948,"split":0.0597,"die":3.701,"opr":12.226,"mpo":3.454},"Express":{"orders":350232,"split":0.0606,"die":3.701,"opr":3.825,"mpo":6.692},"Shipped":{"orders":986611,"split":0.0601,"die":3.701}},"Midwest":{"Pickup":{"orders":1182407,"split":0.0596,"die":3.775},"Same-day":{"orders":658691,"split":0.0601,"die":3.775,"opr":11.818,"mpo":3.894},"Express":{"orders":291057,"split":0.06,"die":3.775,"opr":3.701,"mpo":7.468},"Shipped":{"orders":897113,"split":0.06,"die":3.775}},"West":{"Pickup":{"orders":1045491,"split":0.0609,"die":4.225},"Same-day":{"orders":655148,"split":0.0607,"die":4.225,"opr":13.287,"mpo":2.629},"Express":{"orders":309145,"split":0.06,"die":4.225,"opr":4.057,"mpo":5.291},"Shipped":{"orders":946560,"split":0.0598,"die":4.225}}},"6":{"Southeast":{"Pickup":{"orders":1139316,"split":0.0599,"die":4.176},"Same-day":{"orders":651881,"split":0.0593,"die":4.176,"opr":12.154,"mpo":3.488},"Express":{"orders":351285,"split":0.0727,"die":4.176,"opr":3.712,"mpo":6.885},"Shipped":{"orders":985793,"split":0.0595,"die":4.176}},"Midwest":{"Pickup":{"orders":1180245,"split":0.0604,"die":4.152},"Same-day":{"orders":660501,"split":0.0605,"die":4.152,"opr":11.833,"mpo":3.904},"Express":{"orders":295239,"split":0.0606,"die":4.152,"opr":3.724,"mpo":7.389},"Shipped":{"orders":894486,"split":0.0597,"die":4.152}},"West":{"Pickup":{"orders":1047597,"split":0.0596,"die":4.593},"Same-day":{"orders":652549,"split":0.0596,"die":4.593,"opr":13.239,"mpo":2.629},"Express":{"orders":310542,"split":0.0598,"die":4.593,"opr":4.064,"mpo":5.272},"Shipped":{"orders":946211,"split":0.0606,"die":4.593}}}},"zonesSE":[{"zone":"Southeast Zone 1","density":"Urban","w5":{"orders":75267,"split":0.0596,"die":3.701,"opr":4.373,"mpo":3.654},"w6":{"orders":76422,"split":0.0745,"die":4.176,"opr":4.272,"mpo":3.731}},{"zone":"Southeast Zone 2","density":"Urban","w5":{"orders":53164,"split":0.0614,"die":3.701,"opr":4.413,"mpo":3.62},"w6":{"orders":53254,"split":0.0735,"die":4.175,"opr":4.287,"mpo":3.748}},{"zone":"Southeast Zone 3","density":"Suburban","w5":{"orders":66226,"split":0.0611,"die":3.701,"opr":3.766,"mpo":6.917},"w6":{"orders":65882,"split":0.0715,"die":4.176,"opr":3.664,"mpo":7.063}},{"zone":"Southeast Zone 4","density":"Suburban","w5":{"orders":58978,"split":0.0622,"die":3.701,"opr":3.831,"mpo":6.828},"w6":{"orders":59117,"split":0.0727,"die":4.175,"opr":3.651,"mpo":7.13}},{"zone":"Southeast Zone 5","density":"Suburban","w5":{"orders":42386,"split":0.0586,"die":3.7,"opr":3.768,"mpo":6.891},"w6":{"orders":41930,"split":0.0718,"die":4.176,"opr":3.724,"mpo":6.973}},{"zone":"Southeast Zone 6","density":"Rural","w5":{"orders":33706,"split":0.0613,"die":3.701,"opr":3.0,"mpo":13.335},"w6":{"orders":33796,"split":0.0717,"die":4.176,"opr":2.872,"mpo":13.887}},{"zone":"Southeast Zone 7","density":"Rural","w5":{"orders":20505,"split":0.0595,"die":3.701,"opr":2.995,"mpo":13.353},"w6":{"orders":20884,"split":0.0706,"die":4.176,"opr":2.936,"mpo":13.657}}],"outlook":{"Southeast":[{"week_start":"2026-10-26","region":"Southeast","diesel_low":4.05,"diesel_base":4.17,"diesel_high":4.32},{"week_start":"2026-11-02","region":"Southeast","diesel_low":4.01,"diesel_base":4.15,"diesel_high":4.33},{"week_start":"2026-11-09","region":"Southeast","diesel_low":3.97,"diesel_base":4.13,"diesel_high":4.34},{"week_start":"2026-11-16","region":"Southeast","diesel_low":3.93,"diesel_base":4.11,"diesel_high":4.35},{"week_start":"2026-11-23","region":"Southeast","diesel_low":3.89,"diesel_base":4.09,"diesel_high":4.36},{"week_start":"2026-11-30","region":"Southeast","diesel_low":3.85,"diesel_base":4.07,"diesel_high":4.37},{"week_start":"2026-12-07","region":"Southeast","diesel_low":3.81,"diesel_base":4.05,"diesel_high":4.38},{"week_start":"2026-12-14","region":"Southeast","diesel_low":3.77,"diesel_base":4.03,"diesel_high":4.39},{"week_start":"2026-12-21","region":"Southeast","diesel_low":3.73,"diesel_base":4.01,"diesel_high":4.4},{"week_start":"2026-12-28","region":"Southeast","diesel_low":3.69,"diesel_base":3.99,"diesel_high":4.41},{"week_start":"2027-01-04","region":"Southeast","diesel_low":3.65,"diesel_base":3.97,"diesel_high":4.42},{"week_start":"2027-01-11","region":"Southeast","diesel_low":3.61,"diesel_base":3.95,"diesel_high":4.43},{"week_start":"2027-01-18","region":"Southeast","diesel_low":3.57,"diesel_base":3.93,"diesel_high":4.44}],"Midwest":[{"week_start":"2026-10-26","region":"Midwest","diesel_low":4.04,"diesel_base":4.16,"diesel_high":4.31},{"week_start":"2026-11-02","region":"Midwest","diesel_low":4.0,"diesel_base":4.14,"diesel_high":4.32},{"week_start":"2026-11-09","region":"Midwest","diesel_low":3.96,"diesel_base":4.12,"diesel_high":4.33},{"week_start":"2026-11-16","region":"Midwest","diesel_low":3.92,"diesel_base":4.1,"diesel_high":4.34},{"week_start":"2026-11-23","region":"Midwest","diesel_low":3.88,"diesel_base":4.08,"diesel_high":4.35},{"week_start":"2026-11-30","region":"Midwest","diesel_low":3.84,"diesel_base":4.06,"diesel_high":4.36},{"week_start":"2026-12-07","region":"Midwest","diesel_low":3.8,"diesel_base":4.04,"diesel_high":4.37},{"week_start":"2026-12-14","region":"Midwest","diesel_low":3.76,"diesel_base":4.02,"diesel_high":4.38},{"week_start":"2026-12-21","region":"Midwest","diesel_low":3.72,"diesel_base":4.0,"diesel_high":4.39},{"week_start":"2026-12-28","region":"Midwest","diesel_low":3.68,"diesel_base":3.98,"diesel_high":4.4},{"week_start":"2027-01-04","region":"Midwest","diesel_low":3.64,"diesel_base":3.96,"diesel_high":4.41},{"week_start":"2027-01-11","region":"Midwest","diesel_low":3.6,"diesel_base":3.94,"diesel_high":4.42},{"week_start":"2027-01-18","region":"Midwest","diesel_low":3.56,"diesel_base":3.92,"diesel_high":4.43}],"West":[{"week_start":"2026-10-26","region":"West","diesel_low":4.48,"diesel_base":4.6,"diesel_high":4.75},{"week_start":"2026-11-02","region":"West","diesel_low":4.44,"diesel_base":4.58,"diesel_high":4.76},{"week_start":"2026-11-09","region":"West","diesel_low":4.4,"diesel_base":4.56,"diesel_high":4.77},{"week_start":"2026-11-16","region":"West","diesel_low":4.36,"diesel_base":4.54,"diesel_high":4.78},{"week_start":"2026-11-23","region":"West","diesel_low":4.32,"diesel_base":4.52,"diesel_high":4.79},{"week_start":"2026-11-30","region":"West","diesel_low":4.28,"diesel_base":4.5,"diesel_high":4.8},{"week_start":"2026-12-07","region":"West","diesel_low":4.24,"diesel_base":4.48,"diesel_high":4.81},{"week_start":"2026-12-14","region":"West","diesel_low":4.2,"diesel_base":4.46,"diesel_high":4.82},{"week_start":"2026-12-21","region":"West","diesel_low":4.16,"diesel_base":4.44,"diesel_high":4.83},{"week_start":"2026-12-28","region":"West","diesel_low":4.12,"diesel_base":4.42,"diesel_high":4.84},{"week_start":"2027-01-04","region":"West","diesel_low":4.08,"diesel_base":4.4,"diesel_high":4.85},{"week_start":"2027-01-11","region":"West","diesel_low":4.04,"diesel_base":4.38,"diesel_high":4.86},{"week_start":"2027-01-18","region":"West","diesel_low":4.0,"diesel_base":4.36,"diesel_high":4.87}]},"events":[{"date":"2026-10-17","event_type":"Refinery outage (illustrative)","region":"Southeast","expected_diesel_effect_usd_gal":"+0.25 to +0.40","credibility":"High (multiple sources)"},{"date":"2026-10-18","event_type":"Regional conflict disrupting crude shipping (illustrative)","region":"All","expected_diesel_effect_usd_gal":"+0.10 to +0.30","credibility":"Medium (developing)"},{"date":"2026-10-02","event_type":"Seasonal blend switch (illustrative)","region":"All","expected_diesel_effect_usd_gal":"-0.05","credibility":"High"}],"playbook":[{"action_id":"A1","action":"Batch Express into 2-hour windows in dense zones","lever":"orders_per_route","effect":"+15% orders per route on affected Express orders","customer_impact":"Medium-Low","approver":"Regional Delivery Ops Manager","guardrail":"Keep under-3-hour promise for at least 80% of Express orders"},{"action_id":"A2","action":"Fill from a closer store with stock","lever":"miles_per_order","effect":"-12% miles per order on 20% of delivery orders","customer_impact":"Low","approver":"Regional Delivery Ops Manager","guardrail":"Only if item is in stock at the closer store"},{"action_id":"A3","action":"Minimum basket for Express in low-density zips","lever":"express_volume","effect":"-5% Express orders, +$6 average basket","customer_impact":"Medium-High","approver":"eCommerce Lead","guardrail":"Never in urban zones; review weekly"},{"action_id":"A4","action":"Consolidate split shipments for same-day orders","lever":"split_rate","effect":"-40% split-shipment rate","customer_impact":"Low-Medium","approver":"Fulfillment Center Lead","guardrail":"No added delay beyond promised window"},{"action_id":"A5","action":"Enforce index-based cap on carrier fuel surcharge","lever":"carrier_surcharge","effect":"Surcharge cannot exceed contract index","customer_impact":"None","approver":"Transportation Procurement + Legal","guardrail":"Contract terms only; no supplier price sharing"},{"action_id":"A6","action":"Pickup nudge (small incentive)","lever":"channel_mix","effect":"Shift 3% of Same-day/Express to Pickup","customer_impact":"Low","approver":"eCommerce Lead","guardrail":"Incentive under $1 per order; opt-in only"}],"inv":[{"week_start":"2026-10-19","region":"Southeast","carrier":"Carrier A","base_charge_usd":1855171.09,"fuel_surcharge_pct":14.05,"contract_index_surcharge_pct":14.05,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"Southeast","carrier":"Carrier B","base_charge_usd":1855171.09,"fuel_surcharge_pct":15.25,"contract_index_surcharge_pct":14.05,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"Southeast","carrier":"Carrier C","base_charge_usd":1855171.09,"fuel_surcharge_pct":13.55,"contract_index_surcharge_pct":14.05,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"Midwest","carrier":"Carrier A","base_charge_usd":1682947.31,"fuel_surcharge_pct":13.91,"contract_index_surcharge_pct":13.91,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"Midwest","carrier":"Carrier B","base_charge_usd":1682947.31,"fuel_surcharge_pct":15.11,"contract_index_surcharge_pct":13.91,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"Midwest","carrier":"Carrier C","base_charge_usd":1682947.31,"fuel_surcharge_pct":13.41,"contract_index_surcharge_pct":13.91,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"West","carrier":"Carrier A","base_charge_usd":1783100.47,"fuel_surcharge_pct":16.56,"contract_index_surcharge_pct":16.56,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"West","carrier":"Carrier B","base_charge_usd":1783100.47,"fuel_surcharge_pct":17.76,"contract_index_surcharge_pct":16.56,"index":"Weekly retail diesel (public index)"},{"week_start":"2026-10-19","region":"West","carrier":"Carrier C","base_charge_usd":1783100.47,"fuel_surcharge_pct":16.06,"contract_index_surcharge_pct":16.56,"index":"Weekly retail diesel (public index)"}]}</script>
+<script>
+(function(){
+"use strict";
+const D=JSON.parse(document.getElementById("data").textContent);
+const R=["Southeast","Midwest","West"], T=["Pickup","Same-day","Express","Shipped"];
+const C={MPG:12,K:0.16,WAGE:28,VEH:0.55,HRS:{"Same-day":3.0,"Express":1.15},PL:2.55,PO:0.55,CB:5.45,OVER:0.004};
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const $=id=>document.getElementById(id);
+const fm=(v,d=2)=>"$"+v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const fM=v=>(v<0?"−":"")+"$"+Math.abs(v/1e6).toLocaleString("en-US",{maximumFractionDigits:1})+"M";
+const fOI=v=>(v>=0?"+":"−")+"$"+Math.abs(v/1e6).toLocaleString("en-US",{maximumFractionDigits:1})+"M";
+const offT=o=>o==null?"—":(o>=1?"more than 100% (levers cover the whole shock)":Math.round(Math.max(0,o)*100)+"%");
+const pct=(v,d=1)=>(v>=0?"+":"")+(v*100).toFixed(d)+"%";
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+/* ---------- cost engine ---------- */
+function surch(die){return 0.10+Math.max(0,die-3.5)*0.06}
+function unit(t,s,die,m){
+  m=m||{};
+  if(t==="Pickup"){return {fuel:0.12*die/3.7,labor:C.PL,carrier:0,veh:C.PO}}
+  if(t==="Shipped"){return {fuel:C.CB*(surch(die)+(m.cap?0:C.OVER)),labor:0,carrier:C.CB*(1+s.split*0.6),veh:0}}
+  const mpo=s.mpo*(m.mpoMult||1), opr=s.opr*((t==="Express"?m.oprMultEx:1)||1), sp=s.split*(m.splitMult==null?1:m.splitMult);
+  return {fuel:mpo*(die/C.MPG+C.K*Math.max(0,die-3))*(1+sp),labor:C.HRS[t]*C.WAGE/opr*(1+0.5*sp),carrier:0,veh:mpo*C.VEH*(1+sp)};
+}
+const tot=u=>u.fuel+u.labor+u.carrier+u.veh;
+function weekly(L,shift,regions){
+  regions=regions||R; L=L||{};
+  const m={mpoMult:1-0.30*(L.closer||0),oprMultEx:1+0.35*(L.batch||0),splitMult:1-(L.split||0),cap:!!L.cap};
+  let cost=0,fuel=0,orders=0,fee=0,incent=0; const byT={};
+  for(const r of regions){
+    const B=D.base["6"][r]; const die=B.Express.die+shift;
+    let o={}; T.forEach(t=>o[t]=B[t].orders);
+    const pk=(L.pickup||0); const mv=(o["Same-day"]+o.Express)*pk; o["Same-day"]*=1-pk; o.Express*=1-pk; o.Pickup+=mv; incent+=mv*0.75;
+    const f=L.fee||0; const lostEx=o.Express*Math.max(-0.04,0.04*f); o.Express-=lostEx; o["Same-day"]+=lostEx*0.7;
+    if(L.basket){const b=o.Express*0.05; o.Express-=b; o["Same-day"]+=b*0.6}
+    fee+=o.Express*f;
+    for(const t of T){const u=unit(t,B[t],die,m); const c=tot(u)*o[t]; cost+=c; fuel+=u.fuel*o[t]; orders+=o[t];
+      const a=byT[t]||(byT[t]={c:0,o:0}); a.c+=c; a.o+=o[t];}
+  }
+  return {cost,fuel,orders,fee,incent,byT};
+}
+function scenario(L,shift,dur){
+  const base=weekly({},0), shockW=weekly({},shift), levW=weekly(L,0), bothW=weekly(L,shift);
+  const shockQ=(shockW.cost-base.cost)*dur;
+  const scenQ=(bothW.cost-base.cost)*dur+(levW.cost-base.cost)*(13-dur)+(bothW.incent*13)-(bothW.fee*13);
+  const b=L.batch||0,c=L.closer||0,f=L.fee||0;
+  const under3=100-45*b-(L.basket?2:0);
+  const promise=97.5-1.5*b+0.5*c-(L.split>0.5?0.5:0);
+  const avail=100-(L.basket?5:0)-4*Math.max(0,f);
+  return {base,shockW,bothW,shockQ,scenQ,net:-scenQ,offset:shockQ>0?(shockQ-scenQ)/shockQ:null,under3,promise,avail};
+}
+function guard(L){
+  const g=[];
+  if(100-45*(L.batch||0)-(L.basket?2:0)<80) g.push("Breaks the guardrail: fewer than 80% of Express orders delivered within 3 hours.");
+  if((L.fee||0)>1.5) g.push("Express fee rise above $1.50 may push stretched shoppers away. Needs eCommerce approval.");
+  if((L.closer||0)>0.3) g.push("Closer-store share above 30% needs a stock check at those stores.");
+  if(L.basket) g.push("Minimum basket applies to rural zips only, never urban zones.");
+  if((L.pickup||0)>0.06) g.push("Pickup incentive cost is rising. Check payback.");
+  return g;
+}
+/* ---------- SVG charts ---------- */
+function svgEl(w,h){return `<svg viewBox="0 0 ${w} ${h}" width="100%" role="img">`}
+function lineChart(o){
+  const W=520,H=o.h||220,P={l:44,r:10,t:16,b:26};
+  const all=[];o.series.forEach(s=>s.values.forEach(v=>v!=null&&all.push(v)));if(o.band){o.band.low.forEach(v=>all.push(v));o.band.high.forEach(v=>all.push(v))}
+  let mn=Math.min(...all),mx=Math.max(...all);const pad=(mx-mn)*0.12||0.5;mn-=pad;mx+=pad;
+  const n=o.n,x=i=>P.l+(W-P.l-P.r)*i/(n-1),y=v=>P.t+(H-P.t-P.b)*(1-(v-mn)/(mx-mn));
+  let s=svgEl(W,H)+`<title>${esc(o.title||"chart")}</title>`;
+  for(let k=0;k<=4;k++){const v=mn+(mx-mn)*k/4;s+=`<line x1="${P.l}" x2="${W-P.r}" y1="${y(v)}" y2="${y(v)}" stroke="${css("--line")}"/><text x="${P.l-6}" y="${y(v)+4}" font-size="10" text-anchor="end" fill="${css("--muted")}">${o.fmt(v)}</text>`}
+  if(o.band){const st=o.band.start;let pth="";o.band.high.forEach((v,i)=>pth+=(i?"L":"M")+x(st+i)+","+y(v));for(let i=o.band.low.length-1;i>=0;i--)pth+="L"+x(st+i)+","+y(o.band.low[i]);s+=`<path d="${pth}Z" fill="${css("--spark")}" opacity=".25"/>`}
+  (o.markers||[]).forEach(m=>{s+=`<line x1="${x(m.i)}" x2="${x(m.i)}" y1="${P.t}" y2="${H-P.b}" stroke="${css("--red")}" stroke-dasharray="4 3"/><text x="${x(m.i)+4}" y="${P.t+10}" font-size="10" fill="${css("--red")}">${esc(m.label)}</text>`});
+  o.series.forEach(se=>{let p="";se.values.forEach((v,i)=>{if(v==null)return;p+=(p?"L":"M")+x((se.start||0)+i)+","+y(v)});s+=`<path d="${p}" fill="none" stroke="${se.color}" stroke-width="2.4" ${se.dash?'stroke-dasharray="5 4"':""}/>`});
+  (o.xlabels||[]).forEach(xl=>{s+=`<text x="${x(xl.i)}" y="${H-8}" font-size="10" text-anchor="middle" fill="${css("--muted")}">${esc(xl.t)}</text>`});
+  let lx=P.l;o.series.forEach(se=>{s+=`<rect x="${lx}" y="2" width="10" height="4" fill="${se.color}"/><text x="${lx+14}" y="8" font-size="10" fill="${css("--ink")}">${esc(se.name)}</text>`;lx+=se.name.length*6+34});
+  return s+"</svg>";
+}
+function bars(o){
+  const W=520,H=o.h||200,P={l:44,r:10,t:18,b:30};const all=[0];o.series.forEach(s=>s.values.forEach(v=>all.push(v)));
+  const mx=Math.max(...all)*1.15,gw=(W-P.l-P.r)/o.cats.length,bw=gw*0.7/o.series.length;const y=v=>P.t+(H-P.t-P.b)*(1-v/mx);
+  let s=svgEl(W,H)+`<title>${esc(o.title||"bars")}</title>`;
+  o.cats.forEach((c,i)=>{o.series.forEach((se,j)=>{const v=se.values[i],xx=P.l+gw*i+gw*0.15+bw*j;s+=`<rect x="${xx}" y="${y(v)}" width="${bw-2}" height="${H-P.b-y(v)}" rx="3" fill="${se.color}"/><text x="${xx+bw/2-1}" y="${y(v)-4}" font-size="10" text-anchor="middle" fill="${css("--ink")}">${o.fmt(v)}</text>`});s+=`<text x="${P.l+gw*i+gw/2}" y="${H-10}" font-size="11" text-anchor="middle" fill="${css("--muted")}">${esc(c)}</text>`});
+  let lx=P.l;o.series.forEach(se=>{s+=`<rect x="${lx}" y="2" width="10" height="8" fill="${se.color}"/><text x="${lx+14}" y="10" font-size="10" fill="${css("--ink")}">${esc(se.name)}</text>`;lx+=se.name.length*6+34});
+  return s+"</svg>";
+}
+function waterfall(steps){
+  const W=520,H=230,P={l:44,r:10,t:16,b:40};let run=0;const pts=[];steps.forEach(st=>{if(st.type==="base"||st.type==="total"){pts.push([0,st.value]);run=st.value}else{pts.push([run,run+st.value]);run+=st.value}});
+  const vals=pts.flat();const mn=Math.min(...vals)*0.97,mx=Math.max(...vals)*1.02;const y=v=>P.t+(H-P.t-P.b)*(1-(v-mn)/(mx-mn));const gw=(W-P.l-P.r)/steps.length;
+  let s=svgEl(W,H)+"<title>Cost per order change</title>";
+  steps.forEach((st,i)=>{const [a,b]=pts[i];const top=y(Math.max(a,b)),bot=st.type==="delta"?y(Math.min(a,b)):y(mn);const col=st.type==="delta"?css("--red"):css("--blue");
+    s+=`<rect x="${P.l+gw*i+gw*0.18}" y="${top}" width="${gw*0.64}" height="${Math.max(2,bot-top)}" rx="3" fill="${col}"/><text x="${P.l+gw*i+gw/2}" y="${top-5}" font-size="11" font-weight="700" text-anchor="middle" fill="${css("--ink")}">${st.type==="delta"?"+"+fm(st.value):fm(st.value)}</text><text x="${P.l+gw*i+gw/2}" y="${H-24}" font-size="11" text-anchor="middle" fill="${css("--muted")}">${esc(st.label)}</text>${st.sub?`<text x="${P.l+gw*i+gw/2}" y="${H-10}" font-size="10" text-anchor="middle" fill="${css("--muted")}">${esc(st.sub)}</text>`:""}`});
+  return s+"</svg>";
+}
+/* ---------- story numbers ---------- */
+const SE5=D.base["5"].Southeast.Express, SE6=D.base["6"].Southeast.Express;
+const c0=tot(unit("Express",SE5,SE5.die)), s1=Object.assign({},SE5), c1=tot(unit("Express",SE5,SE6.die));
+const s2=Object.assign({},SE5,{opr:SE6.opr,mpo:SE6.mpo}), c2=tot(unit("Express",s2,SE6.die)), c3=tot(unit("Express",SE6,SE6.die));
+const dTot=c3-c0, share={fuel:(c1-c0)/dTot,dens:(c2-c1)/dTot,split:(c3-c2)/dTot};
+const N=D.dates.length, spikeI=D.dates.indexOf("2026-10-19");
+const dShort=s=>{const d=new Date(s+"T12:00:00");return d.toLocaleDateString("en-US",{month:"short",day:"numeric"})};
+/* actions for walkthrough (Southeast Express, one week) */
+function seWeekCost(L){return weekly(L,0,["Southeast"])}
+const seBase=seWeekCost({});
+const ACT=[
+ {id:"A1",name:"Batch Express into 2-hour windows in dense zones",L:{batch:0.35},impact:"md",impactT:"Medium-low",trade:"≈ 84% of Express still within 3 hours (guardrail: 80%)",appr:"Luis (Regional Delivery Ops)"},
+ {id:"A2",name:"Fill from a closer store with stock",L:{closer:0.2},impact:"lo",impactT:"Low",trade:"Only where the item is in stock at the closer store",appr:"Luis (Regional Delivery Ops)"},
+ {id:"A3",name:"Minimum basket for Express in rural zips",L:{basket:true},impact:"hi",impactT:"Medium-high",trade:"About 5% of rural Express orders move to Same-day",appr:"eCommerce lead"}
+];
+ACT.forEach(a=>{const w=seWeekCost(a.L);a.save=seBase.cost-w.cost-(w.incent)+(w.fee)});
+const decision={A1:null,A2:null,A3:null}, reasons={A1:"",A2:"",A3:""};
+/* ---------- walkthrough ---------- */
+const STEPS=["Setup","Monday alert","Why?","Options","Luis decides","Next day","CFO question","Behind the scenes"];
+let step=0;
+function personCard(k){return k==="dana"?`<div class="who"><div class="av dana">DA</div><div><div class="nm">Dana</div><div class="rl">Director, Fulfillment Finance (illustrative)</div></div></div>`:`<div class="who"><div class="av luis">LU</div><div><div class="nm">Luis</div><div class="rl">Southeast Regional Delivery Ops Manager (illustrative)</div></div></div>`}
+const agentHead=`<div class="who"><div class="av agent">AI</div><div><div class="nm">Cost-to-Serve Agent</div><div class="rl">Recommends · people decide</div></div></div>`;
+function stepsList(items){return `<ol class="steps">${items.map((x,i)=>`<li class="${x.tool?"tool":""}"><span class="k">${x.tool?"🔧":i+1}</span><span>${x.t}</span></li>`).join("")}</ol>`}
+function renderWalk(){
+  const P=$("pPerson"),A=$("pAgent"),G=$("pData"),Nn=$("notes");
+  $("dots").innerHTML=STEPS.map((s,i)=>`<button class="dot" data-step="${i}" ${i===step?'aria-current="step"':""}>${i}. ${esc(s)}</button>`).join("");
+  $("prev").disabled=step===0; $("next").disabled=step===STEPS.length-1;
+  const ph=(ic,cls,t)=>`<div class="ph"><span class="ic ${cls}">${ic}</span>${t}</div>`;
+  let p="",a="",g="",n="";
+  const pctF=v=>(v*100).toFixed(0)+"%";
+  if(step===0){
+    p=ph("👤","p","The people")+personCard("dana")+`<p>Owns weekly cost per order for home delivery and pickup. Today she sees fuel's impact only at <b>month-end</b>.</p>`+personCard("luis")+`<p>Runs delivery operations in the Southeast. He can change batching, store assignment and delivery windows, if he knows in time.</p>`;
+    a=ph("🤖","a","The agent")+agentHead+`<p>“An AI agent that assists <b>Dana</b> by combining <b>fuel prices, route miles, carrier invoices and order data</b>, flagging <b>regions and delivery types where cost per order is rising</b>, and recommending <b>batching, routing and delivery-window actions</b>, while Dana and Luis keep the decisions.”</p><div class="card"><b>Executive owner (real):</b> Lance de la Rosa, Executive Vice President, Omni Fulfillment, Walmart U.S.<br><b>Sponsor (real):</b> John David Rainey, Executive Vice President and Chief Financial Officer, Walmart Inc.</div>`;
+    g=ph("📈","d","Why it matters")+`<div class="kpis"><div class="kpi bad"><div class="v">$2B+</div><div class="l">extra fuel cost expected in FY27 (Walmart, Q2 FY27 call)</div></div><div class="kpi"><div class="v">≈ $70M</div><div class="l">operating profit per 0.01% of margin</div></div><div class="kpi"><div class="v">4</div><div class="l">delivery types: Pickup, Same-day, Express, Shipped</div></div><div class="kpi"><div class="v">Daily</div><div class="l">target visibility (today: monthly)</div></div></div><p class="label">Demo network: 3 regions, 20 zones, 6 weeks of illustrative data.</p>`;
+    n="Set the scene: this is about a business problem Walmart has named, $2B+ of extra fuel cost, not about technology. Introduce Dana and Luis as illustrative people. Stress that the agent recommends and people decide.";
+  }
+  if(step===1){
+    p=ph("👤","p","Dana · Monday 7:00 a.m.")+personCard("dana")+`<div class="teams"><div class="bar">Teams · Cost-to-Serve Agent</div><div class="body"><div class="alert"><b>⚠ Southeast Express cost per order is up ${pct(dTot/c0)} in 7 days</b><br>${fm(c0)} → ${fm(c3)} per order (week of ${dShort(D.dates[35])} vs prior week). Diesel in the Southeast rose about $${(SE6.die-SE5.die).toFixed(2)}/gal.</div><div style="margin-top:8px" class="label">Other regions: +3–5%. Pickup and Shipped: stable.</div></div></div>`;
+    a=ph("🤖","a","What the agent did overnight")+agentHead+stepsList([{t:"Daily run at 6:00 a.m. (scheduled trigger)"},{t:"Read fuel prices, routes, orders and carrier invoices",tool:1},{t:"Calculated cost per order by region and delivery type",tool:1},{t:"Compared with the prior week: Southeast Express crossed the +5% alert threshold"},{t:"Posted an alert to Dana in Teams"}]);
+    g=ph("📈","d","The data")+lineChart({title:"Southeast cost per order",n:N,series:[{name:"Express",values:D.cpo.Southeast.Express,color:css("--red")},{name:"Same-day",values:D.cpo.Southeast["Same-day"],color:css("--blue")},{name:"Shipped",values:D.cpo.Southeast.Shipped,color:css("--green")}],markers:[{i:spikeI,label:"Diesel jump"}],fmt:v=>"$"+v.toFixed(0),xlabels:[{i:0,t:dShort(D.dates[0])},{i:21,t:dShort(D.dates[21])},{i:N-1,t:dShort(D.dates[N-1])}]})+lineChart({title:"Diesel",h:150,n:N,series:R.map((r,i)=>({name:r+" diesel",values:D.fuel[r],color:[css("--red"),css("--amber"),css("--muted")][i]})),markers:[{i:spikeI,label:"Supply events"}],fmt:v=>"$"+v.toFixed(2)});
+    n="The agent works overnight and Dana gets an alert in the tool she already uses. The point: daily, not month-end. Note that only Southeast Express spiked; the agent filters out the noise.";
+  }
+  if(step===2){
+    p=ph("👤","p","Dana asks")+personCard("dana")+`<div class="bubble user">What's driving the Southeast Express increase, and is it just fuel?</div><p class="label">Dana wants the cause before she calls Luis.</p>`;
+    a=ph("🤖","a","Agent reasoning")+agentHead+stepsList([{t:"Query cost data: Southeast, Express, last 2 weeks",tool:1},{t:"Split the change into fuel price, route density and split shipments",tool:1},{t:"Check market events (source credibility scored)",tool:1},{t:"Rank zones by contribution"}])+`<div class="bubble agent"><b>It's mostly fuel, but not only fuel.</b> Of the ${fm(dTot)} rise per order: <b>${pctF(share.fuel)} fuel price</b>, <b>${pctF(share.dens)} fewer orders per route</b> (${SE5.opr.toFixed(2)} → ${SE6.opr.toFixed(2)}), and <b>${pctF(share.split)} more split shipments</b> (${(SE5.split*100).toFixed(1)}% → ${(SE6.split*100).toFixed(1)}%). Diesel moved after a refinery outage (high-credibility sources) and a developing regional conflict affecting crude shipping (medium credibility). The density and split parts are things Luis can act on this week.</div>`;
+    const rows=D.zonesSE.map(z=>{const a5=tot(unit("Express",z.w5,z.w5.die)),a6=tot(unit("Express",z.w6,z.w6.die));return `<tr><td>${esc(z.zone)}</td><td>${z.density}</td><td class="num">${fm(a5)}</td><td class="num">${fm(a6)}</td><td class="num up">${pct(a6/a5-1)}</td><td class="num">${z.w6.opr.toFixed(2)}</td></tr>`}).join("");
+    g=ph("📈","d","Why cost per order rose")+waterfall([{label:"Last week",value:c0,type:"base"},{label:"Fuel price",value:c1-c0,type:"delta",sub:pctF(share.fuel)},{label:"Route density",value:c2-c1,type:"delta",sub:pctF(share.dens)},{label:"Split shipments",value:c3-c2,type:"delta",sub:pctF(share.split)},{label:"This week",value:c3,type:"total"}])+`<table class="t"><tr><th>Zone</th><th>Density</th><th class="num">Prior wk</th><th class="num">This wk</th><th class="num">Change</th><th class="num">Orders/route</th></tr>${rows}</table>`;
+    n="This is the key moment: the agent separates what Walmart can't control (fuel price) from what it can (route density, split shipments). Show the reasoning steps with the toggle on, then off for executives.";
+  }
+  if(step===3){
+    p=ph("👤","p","Dana reviews options")+personCard("dana")+`<div class="bubble user">What can we do this week without hurting customers?</div>`;
+    a=ph("🤖","a","Recommendations")+agentHead+`<div class="bubble agent">Three options from the approved playbook, ranked by weekly saving per unit of customer impact. Estimates use this week's Southeast volumes.</div>`+ACT.map(x=>`<div class="card"><h4>${x.id}. ${esc(x.name)}</h4><div>Est. saving: <b>${fm(x.save,0)}/week</b> · Customer impact: <span class="tag ${x.impact}">${x.impactT}</span></div><div class="label">${esc(x.trade)} · Approver: ${esc(x.appr)}</div></div>`).join("")+`<div class="label">Never recommended: shelf-price changes, or sharing one supplier's prices with another.</div>`;
+    g=ph("📈","d","Saving vs impact")+bars({title:"Weekly saving",cats:ACT.map(x=>x.id),series:[{name:"Est. weekly saving ($K)",values:ACT.map(x=>x.save/1000),color:css("--green")}],fmt:v=>"$"+v.toFixed(0)+"K"})+`<table class="t"><tr><th>Action</th><th>Lever</th><th>Customer impact</th></tr>${ACT.map(x=>`<tr><td>${x.id}</td><td>${esc(x.name)}</td><td><span class="tag ${x.impact}">${x.impactT}</span></td></tr>`).join("")}</table>`;
+    n="Every recommendation comes from an approved playbook, with a saving, a trade-off and a named approver. Point out what the agent will never do: change shelf prices.";
+  }
+  if(step===4){
+    p=ph("👤","p","Luis decides")+personCard("luis")+`<div class="teams"><div class="bar">Teams · Approval request from Cost-to-Serve Agent</div><div class="body">`+ACT.map(x=>`<div class="card"><h4>${x.id}. ${esc(x.name)}</h4><div class="label">Est. ${fm(x.save,0)}/week · impact ${x.impactT}</div><div class="approve"><button class="acc ${decision[x.id]==="accept"?"on":""}" data-dec="accept" data-id="${x.id}">✔ Accept</button><button class="rej ${decision[x.id]==="reject"?"on":""}" data-dec="reject" data-id="${x.id}">✖ Reject</button>${decision[x.id]==="reject"?`<input data-reason="${x.id}" placeholder="Reason (required)" value="${esc(reasons[x.id])}">`:""}</div></div>`).join("")+`<div class="label">Tip: try accepting A1 and A2 and rejecting A3 (customer experience risk).</div></div></div>`;
+    const log=ACT.filter(x=>decision[x.id]).map(x=>`<li><span class="k">${decision[x.id]==="accept"?"✔":"✖"}</span><span>${x.id} ${decision[x.id]}ed by Luis${decision[x.id]==="reject"&&reasons[x.id]?": “"+esc(reasons[x.id])+"”":""}</span></li>`).join("");
+    a=ph("🤖","a","Decision log")+agentHead+`<div class="bubble agent">I've sent three options to Luis. I log every decision with time, approver and reason, and I'll measure results tomorrow against control zones.</div><ol class="steps">${log||"<li><span class='k'>…</span><span>Waiting for Luis's decision</span></li>"}</ol>`;
+    g=ph("📈","d","What will be measured")+`<div class="kpis"><div class="kpi"><div class="v">Zones 1–3</div><div class="l">pilot zones (urban/suburban)</div></div><div class="kpi"><div class="v">Zones 4–7</div><div class="l">control zones</div></div><div class="kpi"><div class="v">CPO</div><div class="l">cost per order, Express</div></div><div class="kpi"><div class="v">≥ 80%</div><div class="l">Express within 3 hours (guardrail)</div></div></div>`;
+    n="Hand the decision to the person accountable. Click Accept or Reject live. Rejecting asks for a reason. The next screen changes based on what you choose.";
+  }
+  if(step===5){
+    const L={};ACT.forEach(x=>{if(decision[x.id]==="accept")Object.assign(L,x.L)});
+    const any=Object.keys(L).length>0;
+    const pilotZones=D.zonesSE.slice(0,3),ctrlZones=D.zonesSE.slice(3);
+    const zc=(zs,L2)=>{let c=0,o=0;zs.forEach(z=>{const m={mpoMult:1-0.30*(L2.closer||0),oprMultEx:1+0.35*(L2.batch||0)};c+=tot(unit("Express",z.w6,z.w6.die,m))*z.w6.orders;o+=z.w6.orders});return c/o};
+    const pB=zc(pilotZones,{}),pA=zc(pilotZones,L),cB=zc(ctrlZones,{}),cA=cB*(1+0.002);
+    const wk=seWeekCost(L),save=seBase.cost-wk.cost-wk.incent+wk.fee;
+    p=ph("👤","p","Tuesday: the result")+personCard("luis")+`<div class="bubble agent">${any?`Pilot zones are running the accepted actions. Express cost per order in the pilot zones went from <b>${fm(pB)}</b> to <b>${fm(pA)}</b> (${pct(pA/pB-1)}). Control zones were flat.`:"No actions were accepted, so nothing changed. Go back a step to approve an action."}</div>`+personCard("dana")+`<div class="bubble user">Great. Keep the pilot running for a week, then scale it if the promise rate holds.</div>`;
+    a=ph("🤖","a","Agent tracking")+agentHead+stepsList([{t:"Measured pilot vs control zones (same days, same fuel price)",tool:1},{t:"Checked the guardrail: Express within 3 hours "+(100-45*(L.batch||0)).toFixed(0)+"% (≥ 80%) ✔"},{t:"Projected weekly Southeast saving if scaled: "+fm(Math.max(0,save),0)},{t:"Logged results for the weekly value report"}]);
+    g=ph("📈","d","Pilot vs control")+bars({title:"Express cost per order",cats:["Pilot zones","Control zones"],series:[{name:"Before",values:[pB,cB],color:css("--muted")},{name:"After",values:[pA,cA],color:css("--green")}],fmt:v=>"$"+v.toFixed(2)})+`<div class="kpis"><div class="kpi good"><div class="v">${fm(Math.max(0,save)/1000,0)}K</div><div class="l">est. weekly saving, Southeast</div></div><div class="kpi"><div class="v">${(100-45*(L.batch||0)).toFixed(0)}%</div><div class="l">Express within 3 hours</div></div></div>`;
+    n="Close the loop: the agent measures results against control zones, so the saving is evidence, not a claim. This is the 'weekly evidence' step in the 90-day proof.";
+  }
+  if(step===6){
+    const L={};ACT.forEach(x=>{if(decision[x.id]==="accept")Object.assign(L,x.L)});
+    const sc=scenario(L,0.5,13);
+    p=ph("👤","p","For the CFO's office")+personCard("dana")+`<div class="bubble user">What does another +$0.50/gal of diesel for the whole quarter do to our delivery cost, and how much do today's actions offset?</div>`;
+    a=ph("🤖","a","Scenario answer")+agentHead+stepsList([{t:"Applied +$0.50/gal for 13 weeks across all 3 regions",tool:1},{t:"Re-costed every delivery type with today's volumes",tool:1},{t:"Applied the accepted actions network-wide",tool:1}])+`<div class="bubble agent">Fuel alone would add about <b>${fM(sc.shockQ)}</b> to delivery cost this quarter. With the accepted actions scaled across the network, the net added cost is <b>${fM(sc.scenQ)}</b>${sc.offset!=null?` (offset: <b>${offT(sc.offset)}</b>)`:""}. Assumptions: today's volumes, 12 mpg, fuel-linked mileage pay, carrier surcharge tied to the diesel index. Illustrative network only.</div><button class="navbtn applybtn" id="toStudio">Open in the What-if studio ▶</button>`;
+    g=ph("📈","d","Quarter view (illustrative network)")+bars({title:"Quarter impact",cats:["Fuel shock only","With accepted actions"],series:[{name:"Added delivery cost ($M)",values:[Math.max(0,sc.shockQ/1e6),Math.max(0,sc.scenQ/1e6)],color:css("--red")}],fmt:v=>"$"+v.toFixed(1)+"M"});
+    n="One question from the CFO's office and the answer comes with assumptions. Hand off to the What-if studio to explore live.";
+  }
+  if(step===7){
+    p=ph("👤","p","People stay accountable")+`<ul><li><b>Dana</b> sees cost daily and asks questions.</li><li><b>Luis</b> approves operating actions.</li><li><b>eCommerce and Procurement</b> approve fee and contract actions.</li><li><b>Treasury</b> (phase 2) approves any hedge. The agent never trades.</li></ul>`;
+    a=ph("🤖","a","Agent workflow")+`<div class="flow"><span class="s">1 Trigger</span><span class="arr">→</span><span class="s">2 Gather</span><span class="arr">→</span><span class="s">3 Calculate</span><span class="arr">→</span><span class="s">4 Explain</span><span class="arr">→</span><span class="s">5 Recommend</span><span class="arr">→</span><span class="s">6 Approve</span><span class="arr">→</span><span class="s">7 Track</span></div><div class="formula" style="margin-top:10px">cost per order = (fuel + driver/labor + carrier + vehicle) ÷ orders
+fuel per order = miles per order × (diesel ÷ mpg + fuel-linked mileage pay) × (1 + split rate)
+carrier fuel surcharge = 10% + 6% × (diesel − $3.50), capped at the contract index</div><p class="label">Guardrails: no shelf-price changes · one price for every shopper in a store · approved playbook only · every decision logged · sources shown for market alerts.</p>`;
+    g=ph("🧱","d","Possible building blocks")+`<table class="t"><tr><th>Layer</th><th>Role</th></tr><tr><td>Data</td><td>Microsoft Fabric lakehouse: orders, routes, fuel, carrier invoices</td></tr><tr><td>Agent</td><td>Copilot Studio (demo) or Azure AI Foundry Agent Service (target)</td></tr><tr><td>Questions on data</td><td>Fabric data agent over the semantic model</td></tr><tr><td>Experience</td><td>Teams alerts and approval cards; Power BI cost-to-serve dashboard</td></tr><tr><td>Governance</td><td>Entra ID, Purview, decision log and audit trail</td></tr></table><p class="label">Designed to work alongside Walmart's own platforms. Building blocks are options, not requirements.</p>`;
+    n="Only now show technology, as roles in the workflow. Lead with the guardrails and human accountability.";
+  }
+  P.innerHTML=p;A.innerHTML=a;G.innerHTML=g;Nn.innerHTML=n;
+  A.classList.toggle("thinkoff",!$("thinkToggle").checked);
+  const ts=$("toStudio"); if(ts) ts.addEventListener("click",()=>{const L={};ACT.forEach(x=>{if(decision[x.id]==="accept")Object.assign(L,x.L)});setLevers(L);$("dShift").value=0.5;$("dDur").value=13;showTab("studio");update();say("agent","I loaded Dana's question: diesel +$0.50/gal for the full quarter, with the actions Luis accepted. Move any lever to see the effect.")});
+}
+$("prev").addEventListener("click",()=>{if(step>0){step--;renderWalk()}});
+$("next").addEventListener("click",()=>{if(step<STEPS.length-1){step++;renderWalk()}});
+$("dots").addEventListener("click",e=>{const b=e.target.closest("[data-step]");if(b){step=+b.dataset.step;renderWalk()}});
+$("thinkToggle").addEventListener("change",()=>$("pAgent").classList.toggle("thinkoff",!$("thinkToggle").checked));
+$("pPerson").addEventListener("click",e=>{const b=e.target.closest("[data-dec]");if(!b)return;decision[b.dataset.id]=b.dataset.dec;renderWalk()});
+$("pPerson").addEventListener("input",e=>{const i=e.target.closest("[data-reason]");if(i){reasons[i.dataset.reason]=i.value}});
+$("pPerson").addEventListener("change",()=>renderWalk());
+/* ---------- tabs ---------- */
+function showTab(t){$("walk").classList.toggle("hidden",t!=="walk");$("studio").classList.toggle("hidden",t!=="studio");$("tab-walk").setAttribute("aria-selected",t==="walk");$("tab-studio").setAttribute("aria-selected",t==="studio");if(t==="studio")update()}
+$("tab-walk").addEventListener("click",()=>showTab("walk"));$("tab-studio").addEventListener("click",()=>showTab("studio"));
+/* ---------- studio ---------- */
+$("todayDiesel").textContent=SE6.die.toFixed(2);
+const ids={batch:"lBatch",closer:"lCloser",split:"lSplit",pickup:"lPickup",fee:"lFee"};
+function getL(){return {batch:+$("lBatch").value,closer:+$("lCloser").value,split:+$("lSplit").value,pickup:+$("lPickup").value,fee:+$("lFee").value,basket:$("lBasket").checked,cap:$("lCap").checked}}
+function setLevers(L){$("lBatch").value=L.batch||0;$("lCloser").value=L.closer||0;$("lSplit").value=L.split||0;$("lPickup").value=L.pickup||0;$("lFee").value=L.fee||0;$("lBasket").checked=!!L.basket;$("lCap").checked=!!L.cap}
+let saved={A:null,B:null};
+function update(){
+  const L=getL(),sh=+$("dShift").value,du=+$("dDur").value;
+  $("oShift").textContent=(sh>=0?"+":"−")+"$"+Math.abs(sh).toFixed(2)+"/gal";$("oDur").textContent=du+" wk";
+  $("oBatch").textContent=Math.round(L.batch*100)+"%";$("oCloser").textContent=Math.round(L.closer*100)+"%";$("oSplit").textContent="−"+Math.round(L.split*100)+"%";$("oPickup").textContent=Math.round(L.pickup*100)+"%";$("oFee").textContent=(L.fee>=0?"+":"−")+"$"+Math.abs(L.fee).toFixed(2);
+  // fuel chart: history SE + outlook band + scenario line
+  const OL=D.outlook.Southeast, hist=D.fuel.Southeast.slice(-21), n=21+13*7;
+  const band={start:21,low:[],high:[]},baseL=[],scen=[];
+  for(let i=0;i<13*7;i++){const w=Math.min(12,Math.floor(i/7));band.low.push(OL[w].diesel_low);band.high.push(OL[w].diesel_high);baseL.push(OL[w].diesel_base);scen.push(OL[w].diesel_base+(i<du*7?sh:0))}
+  $("fuelChart").innerHTML=lineChart({title:"Southeast diesel: history and outlook",n,h:210,series:[{name:"History",values:hist,color:css("--ink")},{name:"Base outlook",values:baseL,start:21,color:css("--amber"),dash:1},{name:"Your scenario",values:scen,start:21,color:css("--red")}],band,markers:[{i:21,label:"Today"}],fmt:v=>"$"+v.toFixed(2),xlabels:[{i:0,t:"3 wks ago"},{i:21,t:"Today"},{i:n-1,t:"+13 wks"}]});
+  const sc=scenario(L,sh,du), g=guard(L);
+  const before=sc.base.byT, after=sc.bothW.byT;
+  const rows=T.map(t=>{const b=before[t].c/before[t].o,a=after[t].c/after[t].o;return `<tr><td>${t}</td><td class="num">${fm(b)}</td><td class="num">${fm(a)}</td><td class="num ${a>b?"up":"down"}">${pct(a/b-1)}</td></tr>`}).join("");
+  const net=sc.net, bps=net/70.64e6;
+  const meter=(v,good)=>`<div class="meter"><i style="width:${Math.max(0,Math.min(100,v))}%;background:${v>=good?css("--green"):css("--red")}"></i></div>`;
+  $("outcomes").innerHTML=`<div class="kpis"><div class="kpi bad"><div class="v">${fM(sc.shockQ)}</div><div class="l">fuel shock alone (added cost)</div></div><div class="kpi ${net>=0?"good":"bad"}"><div class="v">${fOI(net)}</div><div class="l">net operating income impact with levers</div></div><div class="kpi"><div class="v">${sc.offset==null?"—":(sc.offset>=1?"100%+":Math.round(Math.max(0,sc.offset)*100)+"%")}</div><div class="l">of the shock offset by levers</div></div><div class="kpi"><div class="v">${fm(sc.bothW.fuel/1e6,1)}M</div><div class="l">weekly fuel-linked cost (during the shock)</div></div></div>
+  <div class="label">Scale: ${fOI(net)} ≈ ${(bps*0.01).toFixed(3)}% of Walmart's margin equivalent (≈ $70M per 0.01%). Illustrative 3-region network.</div>
+  <h4 style="margin:12px 0 4px">Cost per order (during shock, with levers)</h4><table class="t"><tr><th>Type</th><th class="num">Today</th><th class="num">Scenario</th><th class="num">Change</th></tr>${rows}</table>
+  <h4 style="margin:12px 0 4px">Customer impact</h4>
+  <div class="label">Express within 3 hours: <b>${sc.under3.toFixed(0)}%</b> (guardrail ≥ 80%)</div>${meter(sc.under3,80)}
+  <div class="label">Delivery promises kept: <b>${sc.promise.toFixed(1)}%</b></div>${meter(sc.promise,97)}
+  <div class="label">Express availability: <b>${sc.avail.toFixed(0)}%</b></div>${meter(sc.avail,95)}
+  <h4 style="margin:12px 0 4px">Guardrails</h4>${g.length?g.map(x=>`<div class="warn">⚠ ${esc(x)}</div>`).join(""):`<div class="ok">✔ All guardrails met</div>`}<div class="ok">✔ No shelf-price changes: one price for every shopper in a store</div>
+  <h4 style="margin:12px 0 4px">Compare scenarios</h4><div class="presets"><button id="saveA">Save as A</button><button id="saveB">Save as B</button></div><div class="cmp">${["A","B"].map(k=>saved[k]?`<div class="card"><b>Scenario ${k}</b><div class="label">${esc(saved[k].desc)}</div><div>Net: <b>${fOI(saved[k].net)}</b></div><div class="label">Express ≤3h ${saved[k].under3.toFixed(0)}% · offset ${saved[k].offset}</div></div>`:`<div class="card label">Scenario ${k}: not saved</div>`).join("")}</div>
+  <details style="margin-top:8px"><summary>How this is calculated</summary><div class="formula">Quarter = 13 weeks at today's volumes (week of ${dShort(D.dates[35])}).
+Fuel shock applies for the weeks you choose; levers apply all quarter.
+cost per order = fuel + labor + carrier + vehicle
+fuel/order = miles/order × (diesel ÷ 12 mpg + 0.16 × (diesel − $3)) × (1 + split rate)
+labor/order = route hours × $28 ÷ orders per route
+batching: Express orders per route × (1 + 0.35 × batched share)
+closer store: miles per order × (1 − 0.30 × share)
+carrier surcharge = 10% + 6% × (diesel − $3.50) + 0.4 pt overbilling unless capped
+net impact = −(added cost + Pickup incentives − Express fee revenue)</div></details>`;
+  $("saveA").addEventListener("click",()=>saveSc("A",L,sc,sh,du));$("saveB").addEventListener("click",()=>saveSc("B",L,sc,sh,du));
+}
+function descL(L,sh,du){const p=[];if(L.batch)p.push("batch "+Math.round(L.batch*100)+"%");if(L.closer)p.push("closer store "+Math.round(L.closer*100)+"%");if(L.split)p.push("split −"+Math.round(L.split*100)+"%");if(L.pickup)p.push("pickup "+Math.round(L.pickup*100)+"%");if(L.fee)p.push("fee "+(L.fee>0?"+":"")+"$"+L.fee);if(L.basket)p.push("min basket");if(L.cap)p.push("surcharge cap");return `Diesel ${sh>=0?"+":"−"}$${Math.abs(sh).toFixed(2)} × ${du} wk; `+(p.join(", ")||"no levers")}
+function saveSc(k,L,sc,sh,du){saved[k]={desc:descL(L,sh,du),net:sc.net,under3:sc.under3,offset:sc.offset==null?"—":Math.round(sc.offset*100)+"%"};update();say("agent",`Saved scenario ${k}: ${saved[k].desc}. Net ${fOI(sc.net)}.`)}
+["dShift","dDur","lBatch","lCloser","lSplit","lPickup","lFee"].forEach(i=>$(i).addEventListener("input",update));["lBasket","lCap"].forEach(i=>$(i).addEventListener("change",update));
+const PRE={calm:{sh:-0.15,du:13,t:"Calm market: diesel eases about $0.15/gal for the quarter."},refinery:{sh:0.45,du:6,t:"Refinery outage: about +$0.45/gal for 6 weeks (high-credibility sources)."},conflict:{sh:0.8,du:10,t:"Shipping disruption from a regional conflict: about +$0.80/gal for 10 weeks (medium credibility; developing)."}};
+document.querySelector(".market .presets").addEventListener("click",e=>{const b=e.target.closest("[data-preset]");if(!b)return;const k=b.dataset.preset;if(k==="reset"){$("dShift").value=0;$("dDur").value=8;setLevers({});update();say("agent","Reset to today: no shock, no levers.");return}$("dShift").value=PRE[k].sh;$("dDur").value=PRE[k].du;update();const sc=scenario(getL(),PRE[k].sh,PRE[k].du);say("agent",`${PRE[k].t} Fuel alone adds about ${fM(sc.shockQ)} this quarter. Ask me which levers offset it with the least customer impact.`)});
+/* ---------- scripted agent chat ---------- */
+let lastPlan=null;
+function say(who,html){const d=document.createElement("div");d.className="bubble "+(who==="user"?"user":"agent");d.innerHTML=(who==="user"?"<b>Dana:</b> ":"<b>Agent:</b> ")+html;$("chatlog").appendChild(d);$("chatlog").scrollTop=1e6}
+function plan(target){
+  const sh=+$("dShift").value,du=+$("dDur").value;
+  const C2=[{name:"Carrier surcharge cap + 20% fewer split shipments",L:{cap:true,split:0.2}},{name:"Carrier surcharge cap + 30% fewer split shipments + 10% from a closer store",L:{cap:true,split:0.3,closer:0.1}},{name:"Carrier surcharge cap + 40% fewer split shipments + 20% from a closer store",L:{cap:true,split:0.4,closer:0.2}},{name:"…plus batch 25% of Express",L:{cap:true,split:0.4,closer:0.2,batch:0.25}},{name:"…plus 4% Pickup nudge",L:{cap:true,split:0.4,closer:0.2,batch:0.25,pickup:0.04}},{name:"…plus +$1.00 Express fee",L:{cap:true,split:0.4,closer:0.2,batch:0.25,pickup:0.04,fee:1}}];
+  let pick=null,res=null;for(const c of C2){const s=scenario(c.L,sh,du);if(guard(c.L).filter(x=>x.startsWith("Breaks")).length)continue;pick=c;res=s;if(s.offset!=null&&s.offset>=target)break}
+  return {pick,res,sh,du};
+}
+function respond(q){
+  const t=q.toLowerCase();
+  if(/reset/.test(t)){$("dShift").value=0;$("dDur").value=8;setLevers({});update();return "Reset to today: no shock, no levers."}
+  if(/apply/.test(t)){if(!lastPlan)return "There's no plan to apply yet. Ask me which levers offset the shock with the least customer impact.";setLevers(lastPlan.L);update();const s=scenario(getL(),+$("dShift").value,+$("dDur").value);return `Applied: ${esc(lastPlan.name)}. Net operating income impact is now ${fOI(s.net)}; Express within 3 hours ${s.under3.toFixed(0)}%.`}
+  if(/refinery/.test(t)){$("dShift").value=0.45;$("dDur").value=6;update()} else if(/conflict|war|shipping/.test(t)){$("dShift").value=0.8;$("dDur").value=10;update()} else if(/calm/.test(t)){$("dShift").value=-0.15;$("dDur").value=13;update()}
+  const m=t.match(/([+-]?)\s*\$?\s*(\d+(?:\.\d+)?)\s*(?:\/gal|per gallon|a gallon)?/);const wk=t.match(/(\d+)\s*(?:weeks?|wks?)/);
+  if(/diesel|fuel|gallon|\$/.test(t)&&m&&!/weeks?$/.test(m[0])){let v=parseFloat(m[2]);if(v>5)v=v/100;if(m[1]==="-"||/drop|fall|down|lower/.test(t))v=-v;$("dShift").value=Math.max(-0.5,Math.min(1,v));}
+  if(wk){$("dDur").value=Math.max(1,Math.min(13,+wk[1]))} else if(/quarter|q4/.test(t)){$("dDur").value=13}
+  update();
+  const sh=+$("dShift").value,du=+$("dDur").value,L=getL(),s=scenario(L,sh,du);
+  if(/least|offset|recommend|plan|what should|best/.test(t)){
+    const P=plan(0.6);if(!P.pick)return "I couldn't find a plan that meets the guardrails. Try a smaller shock.";lastPlan=P.pick;
+    return `For diesel ${sh>=0?"+":"−"}$${Math.abs(sh).toFixed(2)} over ${du} weeks, fuel alone adds ${fM(P.res.shockQ)}. The lowest-impact plan that meets all guardrails: <b>${esc(P.pick.name)}</b>. Net operating income impact <b>${fOI(P.res.net)}</b> (offset: ${offT(P.res.offset)}); Express within 3 hours ${P.res.under3.toFixed(0)}%. Type “apply” to set the levers.`}
+  if(/how|formula|calculat|why|assum/.test(t)) return "I re-cost each delivery type at today's volumes. Fuel per order = miles per order × (diesel ÷ 12 mpg + fuel-linked mileage pay) × (1 + split rate). Labor = route hours × $28 ÷ orders per route. Carrier surcharge follows the diesel index. Levers change orders per route, miles per order, split rate and channel mix. The full formulas are under “How this is calculated”.";
+  if(/compare|trade-?off/.test(t)) return `Right now: fuel shock adds ${fM(s.shockQ)} cost; net operating income impact with your levers ${fOI(s.net)}, Express within 3 hours ${s.under3.toFixed(0)}%, availability ${s.avail.toFixed(0)}%. Save this as A, change levers, save as B, and compare side by side.`;
+  if(/diesel|fuel|gallon|refinery|conflict|war|calm|shipping|\$/.test(t)) return `Diesel ${sh>=0?"+":"−"}$${Math.abs(sh).toFixed(2)}/gal for ${du} weeks adds about <b>${fM(s.shockQ)}</b> to delivery cost this quarter (illustrative network). With your current levers the net operating income impact is <b>${fOI(s.net)}</b>. Want me to suggest the levers with the least customer impact?`;
+  return "I can run fuel what-ifs (“What if diesel rises $0.50 for 8 weeks?”), suggest levers (“Which levers offset it with the least customer impact?”), apply a plan (“apply”), explain the math (“How is this calculated?”) or reset.";
+}
+const CHIPS=["What if diesel rises $0.50 for 8 weeks?","Which levers offset it with the least customer impact?","apply","Refinery outage scenario","Regional conflict: shipping disruption","How is this calculated?","Show me the trade-off","reset"];
+$("chips").innerHTML=CHIPS.map(c=>`<button data-q="${esc(c)}">${esc(c)}</button>`).join("");
+function ask(q){if(!q.trim())return;say("user",esc(q));setTimeout(()=>say("agent",respond(q)),250)}
+$("chips").addEventListener("click",e=>{const b=e.target.closest("[data-q]");if(b)ask(b.dataset.q)});
+$("chatsend").addEventListener("click",()=>{ask($("chatq").value);$("chatq").value=""});
+$("chatq").addEventListener("keydown",e=>{if(e.key==="Enter"){ask($("chatq").value);$("chatq").value=""}});
+say("agent","Hi Dana. Move the fuel and lever controls, or ask me a what-if question. Everything here uses illustrative data.");
+renderWalk();update();
+})();
+</script>
+</body>
+</html>

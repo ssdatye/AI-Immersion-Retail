@@ -1,0 +1,21 @@
+region,zone,density,miles_to_store
+Southeast,Southeast Zone 1,Urban,3.9
+Southeast,Southeast Zone 2,Urban,2.1
+Southeast,Southeast Zone 3,Suburban,5.8
+Southeast,Southeast Zone 4,Suburban,5.7
+Southeast,Southeast Zone 5,Suburban,7.2
+Southeast,Southeast Zone 6,Rural,13.0
+Southeast,Southeast Zone 7,Rural,13.7
+Midwest,Midwest Zone 1,Urban,2.3
+Midwest,Midwest Zone 2,Urban,3.3
+Midwest,Midwest Zone 3,Suburban,5.1
+Midwest,Midwest Zone 4,Suburban,5.7
+Midwest,Midwest Zone 5,Rural,12.5
+Midwest,Midwest Zone 6,Rural,11.1
+Midwest,Midwest Zone 7,Rural,11.6
+West,West Zone 1,Urban,3.9
+West,West Zone 2,Urban,3.6
+West,West Zone 3,Urban,2.7
+West,West Zone 4,Suburban,6.8
+West,West Zone 5,Suburban,7.4
+West,West Zone 6,Rural,11.0
