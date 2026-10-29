@@ -15,7 +15,8 @@ Decisions are in [docs/adr/000-reuse-assessment.md](docs/adr/000-reuse-assessmen
 [docs/adr/001-agent-and-model-access.md](docs/adr/001-agent-and-model-access.md),
 [docs/adr/002-what-if-studio.md](docs/adr/002-what-if-studio.md),
 [docs/adr/003-entra-sign-in.md](docs/adr/003-entra-sign-in.md) and
-[docs/adr/004-hosted-platform.md](docs/adr/004-hosted-platform.md).
+[docs/adr/004-hosted-platform.md](docs/adr/004-hosted-platform.md) and
+[docs/adr/005-agent-evaluations.md](docs/adr/005-agent-evaluations.md).
 
 The architecture as built, with technology choices, Dana and Luis sequence diagrams, cost and
 the production view, is in
@@ -30,7 +31,7 @@ the production view, is in
 | 3         | What-If Studio front end                                 | Done    |
 | 4         | Entra sign-in, app roles, Dana and Luis views            | Done    |
 | 5         | Azure resources via Bicep in a new resource group        | Done    |
-| 6         | Evaluations                                              | Planned |
+| 6         | Evaluations                                              | Done    |
 | 7         | Demo hardening and run-book                              | Planned |
 
 ## Repository layout
@@ -44,6 +45,9 @@ the production view, is in
 | `tests/CostToServe.Core.Tests`      | Parity, anchor, validation, data and reset tests                                                                          |
 | `tests/CostToServe.Agent.Tests`     | Tool scope, decision rules and tool-schema tests (no model)                                                               |
 | `tests/CostToServe.Api.Tests`       | In-memory API tests: personas, scope, decisions, confirmations                                                            |
+| `tests/CostToServe.Evals.Tests`     | Tests for the evaluation checks and the dataset                                                                           |
+| `evals`                             | Agent evaluation: runner (`CostToServe.Evals`), `dataset.jsonl`, Foundry submit and report scripts                        |
+| `docs/evals`                        | Evaluation guide and the latest report                                                                                    |
 | `infra`                             | Bicep: dedicated resource group, Foundry, and the hosted platform (APIM, App Service, SQL, Cosmos, Key Vault, monitoring) |
 | `infra/apim`                        | APIM policies: studio front gate and AI gateway                                                                           |
 | `data/seed`                         | Read-only illustrative seed CSVs with a `SHA256SUMS` manifest                                                             |
@@ -56,6 +60,7 @@ the production view, is in
 | `scripts/deploy-foundry.sh`         | Deploys the Foundry model (billable) and writes local settings                                                            |
 | `scripts/chat.sh`                   | Terminal chat with the agent                                                                                              |
 | `scripts/run-studio.sh`             | Builds the front end and runs the studio on port 5080                                                                     |
+| `scripts/run-evals.sh`              | Runs the agent evaluation and writes `docs/evals/report.md`                                                               |
 | `scripts/setup-entra.sh`            | Creates the app registration, Dana and Luis, and their app roles                                                          |
 | `scripts/teardown-entra.sh`         | Deletes exactly those Entra objects                                                                                       |
 | `scripts/deploy-azure.sh`           | Previews (default) or provisions (`--apply`, billable) the hosted platform                                                |
@@ -218,6 +223,19 @@ The 88% offset is network-wide, against the +$0.50/gal, 13-week shock.
 > current-week Southeast Express cost is $17.0091 from the CSVs versus $17.0118 in the HTML.
 > Both round to the anchors above.
 
+### Agent evaluations
+
+```bash
+./scripts/run-evals.sh                  # 27 questions as Dana and Luis, Foundry judges, report
+./scripts/run-evals.sh --skip-foundry   # deterministic checks only
+```
+
+The runner asks each question through the studio's agent code and checks tools, numbers
+(against the engine), numbers from tools, and decision rules. The Foundry step adds judges
+for task adherence, tool-call accuracy, intent resolution and groundedness in the isolated
+`proj-evals` project. See [docs/evals/README.md](docs/evals/README.md) and the latest
+[report](docs/evals/report.md).
+
 To regenerate the golden fixture after the reference HTML changes:
 
 ```bash
@@ -267,8 +285,10 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317 ./scripts/chat.sh --as dana
 
 Everything lives in one dedicated resource group, `rg-cost-to-serve-demo`. Nothing else in
 the subscription is read or changed. Increment 2 deployed the Foundry account and the
-`gpt-4.1-mini` deployment (30K TPM, default content filter), billed per token. Testing used
-about 3,500-6,500 tokens per chat turn.
+`gpt-4.1-mini` deployment (default content filter), billed per token. Testing used about
+3,500-6,500 tokens per chat turn. Increment 6 raised the deployment to 150K tokens per minute for
+evaluation runs (no fixed cost) and added the connection-free `proj-evals` project; the studio
+stays limited to 30K tokens per minute by the AI gateway.
 
 Increment 5 adds the hosted platform ([ADR 004](docs/adr/004-hosted-platform.md)):
 

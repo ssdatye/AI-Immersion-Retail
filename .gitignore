@@ -35,3 +35,7 @@ src/CostToServe.Api/wwwroot/
 
 # Browser automation artifacts
 .playwright-mcp/
+
+# Evaluation run output (agent answers and tool results)
+evals/out/
+__pycache__/

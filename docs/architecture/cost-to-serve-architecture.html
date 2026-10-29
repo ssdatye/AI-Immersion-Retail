@@ -30,7 +30,7 @@ nav ol{columns:2;font-size:14px}
 
 <h1>Fuel &amp; Cost-to-Serve Intelligence: Architecture</h1>
 <div class="sub">Walmart Inc. · Architect Transformation Program (Retail) · Version 2.0 (as built) · 29 October 2026 · Prepared by Sarang Datye</div>
-<p><span class="tag">Demo: illustrative data</span><span class="tag">Describes what is deployed after Increments 0 to 5</span><span class="tag">Prices: Azure retail list, USD, fetched 29 Oct 2026</span></p>
+<p><span class="tag">Demo: illustrative data</span><span class="tag">Describes what is deployed after Increments 0 to 6</span><span class="tag">Prices: Azure retail list, USD, fetched 29 Oct 2026</span></p>
 <p class="sub">Supersedes version 1.0 (<a href="../reference/walmart-v3-cost-to-serve-architecture.html">docs/reference/walmart-v3-cost-to-serve-architecture.html</a>), which was written before the build. Section 2 lists every difference.</p>
 
 <nav><ol>
@@ -52,7 +52,7 @@ nav ol{columns:2;font-size:14px}
 <div class="kpis">
 <div class="kpi"><b>≈ $76–95/mo</b>Demo as built (APIM and the App Service plan are $74 of it)</div>
 <div class="kpi"><b>0 secrets</b>Managed identity and Entra tokens on every hop</div>
-<div class="kpi"><b>131 tests</b>114 .NET (including 472 parity cases against the reference engine) and 17 web</div>
+<div class="kpi"><b>27/27 eval cases</b>Agent evaluation: deterministic checks pass; Foundry judges pass except expected refusals. 148 automated tests</div>
 <div class="kpi"><b>$21.8K/mo</b>Production run estimate, carried over from v1.0 (not re-priced)</div>
 </div>
 
@@ -70,7 +70,7 @@ nav ol{columns:2;font-size:14px}
 <tr><td>Key Vault</td><td>Holds secrets</td><td class="ok">Provisioned with RBAC; empty</td><td>There are no secrets to hold</td></tr>
 <tr><td>Observability</td><td>App Insights</td><td class="ok">OpenTelemetry traces and logs from the app, and APIM traces, in one App Insights resource; both send with managed identity</td><td>One trace from the browser request through the tools and the model call</td></tr>
 <tr><td>Demo safety</td><td>Scripted fallback, B2 with Always On</td><td class="warn">B2 with Always On is built. The scripted fallback is not built yet (Increment 7)</td><td>Planned with the run-book</td></tr>
-<tr><td>Evaluations</td><td>Not covered</td><td class="warn">Not built yet (Increment 6). Chat turns are already kept for evaluation datasets</td><td>Planned: 20 to 30 questions with expected tool calls and numbers</td></tr>
+<tr><td>Evaluations</td><td>Not covered</td><td class="ok">Built (Increment 6): 27 questions as Dana and Luis, deterministic checks in .NET and Foundry judges in an isolated project</td><td>Proves the "numbers come from tools" rule and the decision rules; found and fixed two agent issues</td></tr>
 <tr><td>Cost</td><td>About $76/month</td><td class="warn">About $76–95/month</td><td>APIM adds $48; model tokens cost less than v1.0 assumed</td></tr>
 </table>
 <p class="sub">Out of scope by decision: Teams alerts and the scheduled 6:00 a.m. run shown in the reference walkthrough.</p>
@@ -86,7 +86,7 @@ flowchart LR
     FG["APIM Developer · East US 2<br/>studio API (front gate)<br/>rate limits · SSE unbuffered"]
     W["App Service B2 Linux · Central US<br/>What-If Studio + studio API<br/>MAF agent · 7 tools · cost engine"]
     AG["APIM · ai-gateway API<br/>validate studio token<br/>llm-token-limit"]
-    F["Foundry · East US 2<br/>gpt-4.1-mini · Global Standard<br/>30K TPM · DefaultV2 filter"]
+    F["Foundry · East US 2<br/>gpt-4.1-mini · Global Standard<br/>DefaultV2 filter · proj-evals"]
     S[("Azure SQL serverless · Central US<br/>schema seed: 10 tables")]
     C[("Cosmos DB serverless · East US 2<br/>decisions · threads · scenarios")]
     M["App Insights + Log Analytics<br/>East US 2"]
@@ -117,7 +117,8 @@ flowchart LR
 <tr><td>Tools (code)</td><td><code>get_cost_per_order</code>, <code>explain_variance</code>, <code>run_scenario</code>, <code>check_guardrail</code>, <code>get_action_playbook</code>, <code>get_execution_results</code>, <code>log_decision</code></td><td>Created per caller, so role and region come from the token, never from the model. The UI buttons call the same tools</td></tr>
 <tr><td>Cost engine</td><td>C# port of the reference HTML engine (unit, weekly, scenario, guard) plus the pilot model</td><td>Deterministic numbers; matches the reference to 1e-12 on 472 cases</td></tr>
 <tr><td>API Management</td><td>Developer tier, 1 unit, East US 2, system-assigned identity</td><td><code>studio</code> API (empty path): front gate. <code>ai-gateway</code> API (<code>/ai</code>): accepts only the studio identity, calls Foundry with APIM's identity, token limit</td></tr>
-<tr><td>Model</td><td>Foundry (AIServices) account, <code>gpt-4.1-mini</code> 2025-04-14, Global Standard 30K TPM, <code>Microsoft.DefaultV2</code> filter, local auth disabled</td><td>Reasoning and tool selection</td></tr>
+<tr><td>Model</td><td>Foundry (AIServices) account, <code>gpt-4.1-mini</code> 2025-04-14, Global Standard 150K TPM (the AI gateway limits the app to 30K), <code>Microsoft.DefaultV2</code> filter, local auth disabled</td><td>Reasoning and tool selection; also the evaluation judge</td></tr>
+<tr><td>Evaluation project</td><td><code>proj-evals</code> under the Foundry account, system-assigned identity, no connections</td><td>Foundry evaluation runs only; isolated from telemetry</td></tr>
 <tr><td>Azure SQL</td><td>Serverless General Purpose, 1 vCore (min 0.5), auto-pause 60 minutes, free offer, Entra-only, Central US</td><td>Source of record for the seed cost facts (schema <code>seed</code>, plus <code>seed.manifest</code> with the version)</td></tr>
 <tr><td>Cosmos DB</td><td>Serverless NoSQL, local auth disabled</td><td><code>decisions</code> (per action and region), <code>threads</code> (one item per chat turn), <code>scenarios</code> (reserved for saved scenarios and evaluation runs)</td></tr>
 <tr><td>Monitoring</td><td>Log Analytics (30 days, 1 GB/day cap) and workspace-based App Insights, local auth disabled</td><td>Traces from the app and APIM in one place</td></tr>
@@ -300,7 +301,7 @@ sequenceDiagram
 <tr><td>Studio identity <code>id-cts-web</code></td><td>Read the <code>seed</code> schema in SQL; read and write Cosmos data; publish telemetry; read Key Vault secrets; call the AI gateway</td><td>Each grant is on one resource</td></tr>
 <tr><td>APIM system identity</td><td>Call the model (Cognitive Services OpenAI User); publish telemetry</td><td>The Foundry account; App Insights</td></tr>
 <tr><td>Deploy identity <code>id-cts-deploy</code></td><td>Deploy code (Website Contributor)</td><td>The studio web app only. Trusts only <code>repo:ssdatye/AI-Immersion-Retail:environment:demo</code></td></tr>
-<tr><td>Developer</td><td>Entra admin of SQL (loads the seed); Cosmos data contributor (reset); model user (local chat)</td><td>The demo resources only</td></tr>
+<tr><td>Developer</td><td>Entra admin of SQL (loads the seed); Cosmos data contributor (reset); model user (local chat); Foundry User and Cognitive Services User (evaluations)</td><td>The demo resources only</td></tr>
 </table>
 <ul>
 <li><b>No keys:</b> local auth is off on Foundry, Cosmos DB and App Insights; SQL accepts Entra tokens only; App Service basic publishing credentials are off.</li>
@@ -315,8 +316,8 @@ sequenceDiagram
 <ul>
 <li><b>Tracing:</b> spans from ASP.NET Core, HttpClient, MAF (<code>Microsoft.Agents.AI*</code>, <code>Experimental.Microsoft.Extensions.AI</code>) and the studio (<code>CostToServe.Agent</code>, <code>CostToServe.Chat</code>). Each tool span records the caller's role, scope and outcome. APIM adds its own spans with W3C correlation and no request or response bodies.</li>
 <li><b>Chat transcripts:</b> each turn (question, answer, tools used, trace ID) goes to Cosmos <code>threads</code>, ready for evaluation datasets.</li>
-<li><b>Tests:</b> 114 .NET tests cover engine parity (472 golden cases from the reference HTML), the demo anchors (Southeast Express $15.56 to $17.01; +$0.50 for 13 weeks ≈ $28.2M; A1 + A2 offset ≈ 88%), tool scope, the decision workflow by role and region, and the API. 17 web tests cover commands, levers and waiting items. No test calls the model.</li>
-<li><b>Not built yet:</b> evaluations (Increment 6) for groundedness, tool-call accuracy and a numeric-accuracy check against the engine.</li>
+<li><b>Tests:</b> 131 .NET tests cover engine parity (472 golden cases from the reference HTML), the demo anchors (Southeast Express $15.56 to $17.01; +$0.50 for 13 weeks ≈ $28.2M; A1 + A2 offset ≈ 88%), tool scope, the decision workflow by role and region, the API, and the evaluation checks. 17 web tests cover commands, levers and waiting items. No unit test calls the model.</li>
+<li><b>Agent evaluation:</b> <code>./scripts/run-evals.sh</code> asks 27 questions as Dana and Luis through the studio's agent code. A .NET runner checks tool selection, numbers against the engine, that every quoted number comes from a tool, and the decision rules. The same turns go to Foundry judges (task adherence, tool-call accuracy, intent resolution, groundedness) in the isolated <code>proj-evals</code> project. Latest result: 27 of 27 cases pass the deterministic checks; the only judge failures are tool calls the tools refused by design. See <code>docs/evals/report.md</code> and ADR 005.</li>
 </ul>
 
 <h2 id="s8">8. Operations</h2>
@@ -329,6 +330,7 @@ sequenceDiagram
 <tr><td>Reset demo state</td><td><code>./scripts/reset-demo.sh --target azure</code></td><td>Deletes decisions and transcripts; visible on the next refresh</td></tr>
 <tr><td>Shut down</td><td><code>./scripts/teardown-azure.sh</code></td><td>Deletes the resource group, which stops all charges. <code>--purge</code> frees soft-deleted names</td></tr>
 <tr><td>Local development</td><td><code>./scripts/run-studio.sh</code></td><td>CSV mode with dev personas or Entra sign-in; same engine and tools</td></tr>
+<tr><td>Evaluate the agent</td><td><code>./scripts/run-evals.sh</code></td><td>About 5 minutes; tokens only (about $0.10–0.50); writes <code>docs/evals/report.md</code></td></tr>
 </table>
 
 <h2 id="s9">9. Cost of the demo as built</h2>
@@ -398,7 +400,7 @@ flowchart TB
 <tr><td>Gateway</td><td>APIM Developer: front gate and AI gateway</td><td>APIM Standard v2 (SLA, VNet): front gate, AI gateway, tools API for other channels, TMS/OMS write-back</td></tr>
 <tr><td>Identity</td><td>Default directory, two demo users, app roles, region map in app settings</td><td>Walmart Entra; groups mapped to roles and regions; Conditional Access; PIM for admins</td></tr>
 <tr><td>Agent</td><td>MAF agent in the studio process, seven tools</td><td>Same pattern. Add specialist agents (market, operations) as MAF workflows. Add a Foundry hosted agent only for Teams or Microsoft 365 channels</td></tr>
-<tr><td>Model</td><td><code>gpt-4.1-mini</code>, pay per token, 30K TPM</td><td><code>gpt-4.1</code> for reasoning and <code>gpt-4.1-mini</code> for routing; Data Zone Standard if residency requires; PTU if usage is steady</td></tr>
+<tr><td>Model</td><td><code>gpt-4.1-mini</code>, pay per token, 150K TPM (30K for the app through the gateway)</td><td><code>gpt-4.1</code> for reasoning and <code>gpt-4.1-mini</code> for routing; Data Zone Standard if residency requires; PTU if usage is steady</td></tr>
 <tr><td>Cost facts</td><td>Text copy of ten CSVs in SQL, loaded at startup</td><td>Fabric pipelines from live sources into SQL marts; region filtering also enforced by SQL row-level security</td></tr>
 <tr><td>Decisions</td><td>Per region in Cosmos serverless; read through</td><td>Cosmos autoscale; change feed into an immutable audit store; write-back to TMS/OMS through APIM after approval</td></tr>
 <tr><td>Hosting</td><td>App Service B2, one instance, Central US</td><td>P2v3 ×3, zone-redundant, VNet integration; chat sessions in a shared store so any instance can serve a turn</td></tr>
@@ -411,7 +413,7 @@ flowchart TB
 <table>
 <tr><th>Item</th><th>Impact</th><th>Action</th></tr>
 <tr><td>Scripted fallback not built</td><td>A model or network failure during a live demo has no backup</td><td>Increment 7: scripted mode and warm-up, plus a run-book</td></tr>
-<tr><td>Evaluations not built</td><td>Answer quality is tested by hand only</td><td>Increment 6: 20–30 questions with expected tool calls and numbers</td></tr>
+<tr><td>Evaluation judge is the same model as the agent</td><td>A judge may share the agent's blind spots</td><td>The numeric and decision checks are deterministic; add a stronger judge deployment for production gates</td></tr>
 <tr><td>Demo users without enforced MFA</td><td>Password-only sign-in to the demo</td><td>Turn on security defaults or Conditional Access for the demo users</td></tr>
 <tr><td>APIM Developer has no SLA</td><td>Acceptable for a demo only</td><td>Standard v2 in production</td></tr>
 <tr><td>Chat sessions are in memory on one instance</td><td>A restart ends open conversations (decisions are safe in Cosmos)</td><td>Shared session store before scaling out</td></tr>
@@ -420,7 +422,7 @@ flowchart TB
 <tr><td>Prices are list, not contract</td><td>Estimates may differ</td><td>Validate with the Azure pricing calculator and the account team</td></tr>
 <tr><td>Walmart data platform and systems of record</td><td>Production integration design depends on it</td><td>Confirm where telematics, TMS and OMS data live (OneLake shortcuts or APIs)</td></tr>
 </table>
-<p class="sub">Sources: the repository code, infrastructure (<code>infra/</code>) and ADRs 000–004; the deployed resource group; Azure Retail Prices API; Microsoft Learn, "Hosted agents in Foundry Agent Service" (updated 27 October 2026). Data: illustrative only.</p>
+<p class="sub">Sources: the repository code, infrastructure (<code>infra/</code>) and ADRs 000–005; the deployed resource group; Azure Retail Prices API; Microsoft Learn, "Hosted agents in Foundry Agent Service" (updated 27 October 2026). Data: illustrative only.</p>
 
 <noscript><p class="note">The diagrams render with JavaScript (Mermaid). Without it, the diagram source text is shown instead.</p></noscript>
 </main>

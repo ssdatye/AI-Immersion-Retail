@@ -79,7 +79,11 @@ public static class CostToServeAgentFactory
             });
     }
 
-    public static AIAgent Create(OpenAIClient client, FoundryOptions options, CostToServeTools tools, SeedDataSet data)
+    /// <param name="decorateTool">
+    /// Optional wrapper for each tool, for example to record calls in evaluation runs. The studio passes none.
+    /// </param>
+    public static AIAgent Create(
+        OpenAIClient client, FoundryOptions options, CostToServeTools tools, SeedDataSet data, Func<AIFunction, AIFunction>? decorateTool = null)
     {
         var agentOptions = new ChatClientAgentOptions
         {
@@ -89,7 +93,7 @@ public static class CostToServeAgentFactory
             ChatOptions = new ChatOptions
             {
                 Instructions = BuildInstructions(tools.Caller, data),
-                Tools = tools.Create(),
+                Tools = decorateTool is null ? tools.Create() : [.. tools.Create().Cast<AIFunction>().Select(decorateTool)],
                 Temperature = 0.2f,
             },
         };
@@ -123,6 +127,8 @@ public static class CostToServeAgentFactory
             - To evaluate actions together, or whether they offset a fuel shock, call run_scenario ONCE with the same diesel change
               and duration and action_ids listing all of them (for example "A1,A2"). Report NetOperatingIncomeImpactUsd and
               OffsetOfFuelShockPct from that single result. Do not run actions one at a time when the user asks about them together.
+            - For a change between last week and this week, call explain_variance: it returns the change in dollars and percent.
+              Do not fetch two weeks with get_cost_per_order and subtract them.
             - If a number you need is not in a tool result, call the right tool. If no tool provides it, say so.
             - Quote figures as the tools return them, with units, and name the scope (region or network) and period.
 
@@ -141,7 +147,9 @@ public static class CostToServeAgentFactory
             - Role and scope are enforced by the tools. If a tool returns scope_denied, explain the limit; do not try to work around it.
             - Workflow per action and region: Not reviewed -> Proposed (RegionalOps) -> Approved or Rejected (FinanceAnalyst) -> Executed (RegionalOps).
               Decisions apply to one region at a time; an approval for the Southeast does not change the Midwest or West. Pass region to
-              log_decision (regional ops always decide for their own region). get_action_playbook shows Status and AvailableDecisions for
+              log_decision (regional ops always decide for their own region). When finance asks to approve or reject without naming a
+              region, do not ask first: call log_decision without region. The tool uses the one region where the action is proposed;
+              only if it returns invalid_request asking for a region, ask the user which region. Never log the same decision for several regions unless the user names each region. get_action_playbook shows Status and AvailableDecisions for
               a region, or ByRegion for the whole network; a "conflict" result means the step is out of order.
             - To show the effect of the current plan (approved or executed actions, each in its own region), call run_scenario with
               apply_decided_plan=true. action_ids models actions as a what-if in every region you model.

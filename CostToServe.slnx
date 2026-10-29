@@ -4,9 +4,13 @@
     <Project Path="src/CostToServe.Api/CostToServe.Api.csproj" />
     <Project Path="src/CostToServe.Core/CostToServe.Core.csproj" />
   </Folder>
+  <Folder Name="/evals/">
+    <Project Path="evals/CostToServe.Evals/CostToServe.Evals.csproj" />
+  </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/CostToServe.Agent.Tests/CostToServe.Agent.Tests.csproj" />
     <Project Path="tests/CostToServe.Api.Tests/CostToServe.Api.Tests.csproj" />
     <Project Path="tests/CostToServe.Core.Tests/CostToServe.Core.Tests.csproj" />
+    <Project Path="tests/CostToServe.Evals.Tests/CostToServe.Evals.Tests.csproj" />
   </Folder>
 </Solution>

@@ -18,10 +18,10 @@ param modelName string = 'gpt-4.1-mini'
 
 param modelVersion string = '2025-04-14'
 
-@description('GlobalStandard capacity in thousands of tokens per minute.')
+@description('GlobalStandard capacity in thousands of tokens per minute. Pay per token, so capacity has no fixed cost; 150 leaves room for evaluation runs (agent turns plus judges). The app is still limited to 30K by the AI gateway.')
 @minValue(1)
-@maxValue(200)
-param modelCapacity int = 30
+@maxValue(500)
+param modelCapacity int = 150
 
 @description('Object ID of the developer who runs the agent locally (granted model access on the demo Foundry account only). Leave empty to skip.')
 param developerPrincipalId string = ''
@@ -207,6 +207,7 @@ output resourceGroupName string = rg.name
 output foundryAccountName string = foundry.outputs.accountName
 output foundryOpenAIEndpoint string = foundry.outputs.openAIEndpoint
 output modelDeploymentName string = foundry.outputs.deploymentName
+output evalsProjectEndpoint string = foundry.outputs.evalsProjectEndpoint
 output studioUrl string = deployPlatform ? '${apim!.outputs.gatewayUrl}/' : ''
 output webAppName string = deployPlatform ? web!.outputs.name : ''
 output apimName string = deployPlatform ? apim!.outputs.name : ''

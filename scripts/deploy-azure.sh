@@ -33,7 +33,7 @@ contact_email="$(az account show --query user.name -o tsv)"
 
 # Entra IDs and Luis's region come from the git-ignored local settings written by setup-entra.sh.
 params="$(mktemp)"
-trap 'rm -f "$params"' EXIT
+trap 'rm -f "$params" "$outputs_file.tmp"' EXIT
 python3 - "$repo_root/src/CostToServe.Api/appsettings.Local.json" "$params" "$location" "$developer_id" "$developer_login" "$contact_email" <<'PY'
 import json, os, sys
 settings_path, out, location, dev_id, dev_login, email = sys.argv[1:]
@@ -71,7 +71,9 @@ if [[ "$confirmed" != true ]]; then
   [[ "$answer" == "deploy" ]] || { echo "Cancelled. Nothing changed."; exit 1; }
 fi
 
-az deployment sub create "${common[@]}" --query properties.outputs -o json > "$outputs_file"
+# Write to a temporary file first so a failed deployment keeps the previous outputs.
+az deployment sub create "${common[@]}" --query properties.outputs -o json > "$outputs_file.tmp"
+mv "$outputs_file.tmp" "$outputs_file"
 echo "Wrote deployment outputs to $outputs_file (git-ignored)."
 require_demo_rg
 echo "Studio URL (after app deploy): $(azure_output studioUrl)"
