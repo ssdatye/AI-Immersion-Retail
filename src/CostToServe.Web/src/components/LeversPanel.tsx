@@ -13,6 +13,8 @@ interface Props {
   onLockedClick: (actionId: string) => void;
   /** Each action's levers at its decided setting (proposed or approved); falls back to the playbook setting. */
   actionLevers: Record<string, { levers: Levers; setting: string | null }>;
+  /** Shown when modeling several regions: approvals apply per region, so the sliders show what-ifs only. */
+  planNote?: string | null;
 }
 
 type NumericLever = "batch" | "closer" | "split" | "pickup" | "fee";
@@ -39,7 +41,7 @@ function isApplied(levers: Levers, action: Levers) {
   );
 }
 
-export function LeversPanel({ dashboard, levers, onChange, region, onRegion, lockedActions, onLockedClick, actionLevers }: Props) {
+export function LeversPanel({ dashboard, levers, onChange, region, onRegion, lockedActions, onLockedClick, actionLevers, planNote }: Props) {
   const lim = dashboard.leverLimits;
   const leversOf = (id: string) => actionLevers[id]?.levers ?? dashboard.actions.find((a) => a.id === id)?.levers ?? NO_LEVERS;
   // Approved actions set a floor; the sliders show the effective value (approved floor or your what-if, whichever is larger).
@@ -95,6 +97,7 @@ export function LeversPanel({ dashboard, levers, onChange, region, onRegion, loc
       ) : (
         <p className="muted">Modeling {dashboard.caller.scope} only (your scope).</p>
       )}
+      {planNote && <p className="muted small plan-note">{planNote}</p>}
       {lockedActions.length > 0 && (
         <p className="muted small">
           Approved {lockedActions.join(", ")} {lockedActions.length === 1 ? "is" : "are"} applied automatically at the settings shown. Use the levers to

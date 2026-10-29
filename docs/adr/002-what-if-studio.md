@@ -47,8 +47,8 @@ agent chat and approve or reject decisions, wired to the local API. Teams is out
 
 ### Decision workflow
 
-Each playbook action moves through one workflow, enforced on the server for buttons and the
-agent alike:
+Each playbook action moves through one workflow per region, enforced on the server for
+buttons and the agent alike:
 
 ```text
 Not reviewed -> Proposed (RegionalOps) -> Approved or Rejected (FinanceAnalyst) -> Executed (RegionalOps)
@@ -116,6 +116,19 @@ Not reviewed -> Proposed (RegionalOps) -> Approved or Rejected (FinanceAnalyst) 
   and are highlighted, and the chat shows a waiting banner with decision buttons. Locked
   lever chips link to their row, where Revoke undoes an approval. There are no push
   notifications. Both users see the shared decision log when they load or refresh the studio.
+
+* Decisions are per region. A first version had no region, so Dana approving Luis's
+  Southeast proposal changed the whole network's numbers. Options considered: region-scoped
+  decisions (chosen), keeping network-wide approvals with clearer labels, or a Southeast pilot
+  followed by a "scale to network" step (which can still be added on top). Each log row now
+  has a `region` (CSV column, Cosmos field); rows logged before that count as Southeast.
+  Regional ops always decide for their own region; finance names the region, or the tool uses
+  the one region where the action is proposed. Scenarios take `applyPlan` and apply each
+  region's approved and executed actions in that region only. The engine sums per-region
+  scenarios, which equals the network scenario when every region has the same levers (tested).
+  Express within 3 hours is the lowest region's, because the guardrail must hold everywhere.
+  The UI adds "Decide for" region tabs with waiting counts for finance, shows the region on
+  the waiting badge, chat banner, plan and decision log, and accepts a region in commands.
 
 User feedback after Increment 4: the first version of the buttons gave too little feedback.
 A success line appeared at the top of the panel and the buttons never changed, so a click

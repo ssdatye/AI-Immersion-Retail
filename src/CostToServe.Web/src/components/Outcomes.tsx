@@ -8,13 +8,15 @@ interface Props {
   loading: boolean;
   costRows: CostRow[];
   period: { currentWeek: string; priorWeek: string };
-  /** Approved or executed actions; applied to the outcomes when includePlan is on. */
-  planActions: { id: string; executed: boolean }[];
+  /** Approved or executed actions in the modeled regions; each applies only in its own region. */
+  planActions: { id: string; region: string; setting: string | null; executed: boolean }[];
+  /** True when several regions are modeled, so each plan item shows its region. */
+  multiRegion: boolean;
   includePlan: boolean;
   onIncludePlan: (value: boolean) => void;
 }
 
-export function Outcomes({ result, error, loading, costRows, period, planActions, includePlan, onIncludePlan }: Props) {
+export function Outcomes({ result, error, loading, costRows, period, planActions, multiRegion, includePlan, onIncludePlan }: Props) {
   return (
     <section className="panel">
       <h2>
@@ -52,8 +54,14 @@ export function Outcomes({ result, error, loading, costRows, period, planActions
               {planActions.length > 0 && (
                 <span className="plan-ids">
                   {planActions.map((a) => (
-                    <span key={a.id} className={`status ${a.executed ? "st-executed" : "st-approved"}`} title={a.executed ? "Executed" : "Approved"}>
+                    <span
+                      key={`${a.id}:${a.region}`}
+                      className={`status ${a.executed ? "st-executed" : "st-approved"}`}
+                      title={`${a.executed ? "Executed" : "Approved"} for ${a.region}${a.setting ? ` at ${a.setting}` : ""}`}
+                    >
                       {a.id}
+                      {a.setting ? ` ${a.setting}` : ""}
+                      {multiRegion ? ` · ${a.region}` : ""}
                       {a.executed ? " ✓" : ""}
                     </span>
                   ))}
@@ -69,7 +77,9 @@ export function Outcomes({ result, error, loading, costRows, period, planActions
               {planActions.length === 0
                 ? "No approved actions yet. Approved actions are applied to these outcomes automatically; levers add what-ifs on top."
                 : includePlan
-                  ? "Included in the numbers above and below. Levers add what-ifs on top of the approved plan."
+                  ? multiRegion
+                    ? "Included above and below, each action in its own region only. Levers add what-ifs on top, in every region."
+                    : "Included in the numbers above and below. Levers add what-ifs on top of the approved plan."
                   : "Not applied: the numbers show the fuel change and levers only, for comparison."}
             </div>
           </div>

@@ -74,7 +74,7 @@ public sealed class StudioEndpointTests : IClassFixture<StudioFactory>
     {
         var luisApproves = await _factory.As("luis").PostAsJsonAsync("/api/decisions", new { actionId = "A4", decision = "approve" });
         var luisExecutesUnapproved = await _factory.As("luis").PostAsJsonAsync("/api/decisions", new { actionId = "A4", decision = "execute" });
-        var danaApproves = await _factory.As("dana").PostAsJsonAsync("/api/decisions", new { actionId = "A4", decision = "approve", reason = "test" });
+        var danaApproves = await _factory.As("dana").PostAsJsonAsync("/api/decisions", new { actionId = "A4", decision = "approve", reason = "test", region = "Southeast" });
         var luisExecutes = await _factory.As("luis").PostAsJsonAsync("/api/decisions", new { actionId = "A4", decision = "execute" });
 
         Assert.Equal(HttpStatusCode.Forbidden, luisApproves.StatusCode);
@@ -83,8 +83,8 @@ public sealed class StudioEndpointTests : IClassFixture<StudioFactory>
         Assert.Equal(HttpStatusCode.OK, luisExecutes.StatusCode);
 
         var log = File.ReadAllText(Path.Combine(_factory.StateDirectory, "local", "decision_log.csv"));
-        Assert.Contains(",A4,Dana,approve,test,", log);
-        Assert.Contains(",A4,Luis,execute,,", log);
+        Assert.Contains(",A4,Dana,approve,test,,0.4,Southeast", log);
+        Assert.Contains(",A4,Luis,execute,,,0.4,Southeast", log);
     }
 
     [Fact]
@@ -101,7 +101,7 @@ public sealed class StudioEndpointTests : IClassFixture<StudioFactory>
         var decisions = await _factory.As("dana").GetFromJsonAsync<JsonElement>("/api/decisions");
         Assert.Contains(decisions.EnumerateArray(), d => d.GetProperty("actionId").GetString() == "A6"
             && d.GetProperty("decision").GetString() == "approve" && d.GetProperty("setting").GetDouble() == 0.05);
-        var playbook = await _factory.As("dana").GetFromJsonAsync<JsonElement>("/api/playbook");
+        var playbook = await _factory.As("dana").GetFromJsonAsync<JsonElement>("/api/playbook?region=Southeast");
         var a6 = playbook.GetProperty("actions").EnumerateArray().Single(a => a.GetProperty("actionId").GetString() == "A6");
         Assert.Equal("Shift to Pickup 5%", a6.GetProperty("setting").GetProperty("text").GetString());
         Assert.Equal(0.05, a6.GetProperty("levers").GetProperty("pickup").GetDouble());

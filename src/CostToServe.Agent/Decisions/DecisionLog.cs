@@ -12,7 +12,21 @@ public enum DecisionKind
 }
 
 /// <param name="Setting">The adjustable lever value decided with this step (fraction), or null when the action has none.</param>
-public sealed record DecisionEntry(DateTimeOffset Timestamp, string ActionId, string Actor, DecisionKind Decision, string Reason, double? Setting = null);
+/// <param name="Region">
+/// The region the decision applies to. Each action is decided separately per region. Null only for rows
+/// logged before decisions had regions; those count as <see cref="DecisionRegions.Legacy"/>.
+/// </param>
+public sealed record DecisionEntry(
+    DateTimeOffset Timestamp, string ActionId, string Actor, DecisionKind Decision, string Reason, double? Setting = null, string? Region = null)
+{
+    public string EffectiveRegion => string.IsNullOrWhiteSpace(Region) ? DecisionRegions.Legacy : Region;
+}
+
+public static class DecisionRegions
+{
+    /// <summary>Region for rows logged before decisions were per region (the demo's only ops region).</summary>
+    public const string Legacy = "Southeast";
+}
 
 /// <summary>A decision awaiting human confirmation in the host (terminal prompt or UI card).</summary>
 public sealed record DecisionProposal(
@@ -23,7 +37,8 @@ public sealed record DecisionProposal(
     string Reason,
     double? EstimatedWeeklySavingUsd,
     IReadOnlyList<string> GuardrailNotes,
-    string? Setting = null);
+    string? Setting = null,
+    string? Region = null);
 
 /// <summary>Asks the human to confirm a decision. The model can request; only the human commits.</summary>
 public interface IDecisionConfirmer
@@ -47,6 +62,7 @@ public interface IDecisionLog
 public sealed class CsvDecisionLog(string stateDirectory) : IDecisionLog
 {
     public const string SettingColumn = "setting";
+    public const string RegionColumn = "region";
 
     private readonly Lock _gate = new();
 
@@ -77,7 +93,7 @@ public sealed class CsvDecisionLog(string stateDirectory) : IDecisionLog
                 throw new InvalidOperationException($"Decision log not found at {Path}. Run ./scripts/reset-demo.sh to initialize demo state.");
             }
 
-            EnsureSettingColumn();
+            EnsureColumns();
             var line = string.Join(',',
                 entry.Timestamp.ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 Escape(entry.ActionId),
@@ -85,20 +101,29 @@ public sealed class CsvDecisionLog(string stateDirectory) : IDecisionLog
                 entry.Decision.ToString().ToLowerInvariant(),
                 Escape(entry.Reason),
                 string.Empty,
-                entry.Setting?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty);
+                entry.Setting?.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+                Escape(entry.Region ?? string.Empty));
             File.AppendAllText(Path, line + "\n");
         }
     }
 
-    private void EnsureSettingColumn()
+    /// <summary>Adds the setting and region columns to a log created from the seed template.</summary>
+    private void EnsureColumns()
     {
         var lines = File.ReadAllLines(Path);
-        if (lines.Length == 0 || lines[0].Split(',').Contains(SettingColumn))
+        if (lines.Length == 0)
         {
             return;
         }
 
-        lines[0] += "," + SettingColumn;
+        var header = lines[0].Split(',');
+        var missing = new[] { SettingColumn, RegionColumn }.Where(c => !header.Contains(c)).ToArray();
+        if (missing.Length == 0)
+        {
+            return;
+        }
+
+        lines[0] += "," + string.Join(',', missing);
         File.WriteAllText(Path, string.Join("\n", lines) + "\n");
     }
 
@@ -119,7 +144,8 @@ public sealed class CsvDecisionLog(string stateDirectory) : IDecisionLog
             fields.Count > 4 ? fields[4] : string.Empty,
             fields.Count > 6 && double.TryParse(fields[6], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var setting)
                 ? setting
-                : null);
+                : null,
+            fields.Count > 7 && fields[7].Length > 0 ? fields[7] : null);
     }
 
     private static List<string> SplitCsv(string line)

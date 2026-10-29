@@ -56,6 +56,25 @@ public sealed class SeedAnchorTests
     }
 
     [Fact]
+    public void Per_region_levers_match_the_network_scenario_when_uniform_and_scope_when_not()
+    {
+        var uniform = Engine.Scenario(Seed.Regions.ToDictionary(r => r, _ => A1A2), 0.5, 13);
+        var network = Engine.Scenario(A1A2, 0.5, 13);
+        var southeastOnly = Engine.Scenario(Seed.Regions.ToDictionary(r => r, r => r == "Southeast" ? A1A2 : Levers.None), 0.5, 13);
+
+        Assert.Equal(network.ScenarioQuarterCost, uniform.ScenarioQuarterCost, 6);
+        Assert.Equal(network.FuelShockQuarterCost, uniform.FuelShockQuarterCost, 6);
+        Assert.Equal(network.PromiseKeptPct, uniform.PromiseKeptPct, 10);
+        Assert.Equal(network.ExpressWithin3HoursPct, uniform.ExpressWithin3HoursPct, 10);
+
+        // An action approved only for the Southeast saves exactly the Southeast's share.
+        var southeastSaving = Engine.Scenario(Levers.None, 0.5, 13, ["Southeast"]).ScenarioQuarterCost
+            - Engine.Scenario(A1A2, 0.5, 13, ["Southeast"]).ScenarioQuarterCost;
+        Assert.Equal(network.FuelShockQuarterCost - southeastSaving, southeastOnly.ScenarioQuarterCost, 6);
+        Assert.Equal(84.25, southeastOnly.ExpressWithin3HoursPct, 10);
+    }
+
+    [Fact]
     public void A1_plus_A2_offsets_about_88_percent_and_keeps_the_express_guardrail()
     {
         var s = Engine.Scenario(A1A2, 0.5, 13);

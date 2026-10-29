@@ -172,6 +172,7 @@ public sealed class WebDecisionConfirmer(PendingConfirmations pending, EventRela
             proposal.EstimatedWeeklySavingUsd,
             proposal.GuardrailNotes,
             proposal.Setting,
+            proposal.Region,
         }));
 
         try

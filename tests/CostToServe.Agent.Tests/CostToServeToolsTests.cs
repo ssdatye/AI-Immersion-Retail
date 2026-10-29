@@ -141,16 +141,16 @@ public sealed class CostToServeToolsTests : IDisposable
         var luis = ToolsFor(DemoPersonas.Luis);
 
         Assert.Equal("scope_denied", await Error(luis.LogDecisionAsync("A1", "approve", null, default)));
-        Assert.Equal("scope_denied", await Error(dana.LogDecisionAsync("A1", "propose", null, default)));
+        Assert.Equal("scope_denied", await Error(dana.LogDecisionAsync("A1", "propose", null, null, "Southeast", default)));
         Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A1", "execute", null, default)));
-        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A1", "reject", "  ", default)));
-        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A9", "approve", null, default)));
-        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A1", "1", null, default)));
+        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A1", "reject", "  ", null, "Southeast", default)));
+        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A9", "approve", null, null, "Southeast", default)));
+        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A1", "1", null, null, "Southeast", default)));
         Assert.Empty(_log.Entries);
         Assert.Equal(0, _confirmer.Calls);
 
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A1", "propose", null, default)));
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A1", "approve", "Pilot first", default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A1", "approve", "Pilot first", null, "Southeast", default)));
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A1", "execute", null, default)));
 
         Assert.Equal(
@@ -165,16 +165,16 @@ public sealed class CostToServeToolsTests : IDisposable
         var dana = ToolsFor(DemoPersonas.Dana);
         var luis = ToolsFor(DemoPersonas.Luis);
 
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, default)));
-        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A2", "approve", null, default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
+        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
         Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A2", "propose", null, default)));
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "reject", "Revoked: stock risk", default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "reject", "Revoked: stock risk", null, "Southeast", default)));
         Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A2", "execute", null, default)));
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A2", "propose", null, default)));
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A2", "execute", null, default)));
         Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A2", "execute", null, default)));
-        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A2", "reject", "too late", default)));
+        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A2", "reject", "too late", null, "Southeast", default)));
         Assert.Equal(5, _log.Entries.Count);
     }
 
@@ -197,7 +197,7 @@ public sealed class CostToServeToolsTests : IDisposable
         Assert.Equal(["propose"], a2ForLuis.GetProperty("availableDecisions").EnumerateArray().Select(x => x.GetString()));
 
         static JsonElement Action(CostToServeTools tools, string id) =>
-            Json(tools.GetActionPlaybook(null)).GetProperty("actions").EnumerateArray().Single(a => a.GetProperty("actionId").GetString() == id);
+            Json(tools.GetActionPlaybook("Southeast")).GetProperty("actions").EnumerateArray().Single(a => a.GetProperty("actionId").GetString() == id);
     }
 
     [Fact]
@@ -208,8 +208,8 @@ public sealed class CostToServeToolsTests : IDisposable
 
         Assert.Equal("none", Json(luis.GetExecutionResults()).GetProperty("status").GetString());
 
-        await dana.LogDecisionAsync("A1", "approve", null, default);
-        await dana.LogDecisionAsync("A2", "approve", null, default);
+        await dana.LogDecisionAsync("A1", "approve", null, null, "Southeast", default);
+        await dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default);
         Assert.Equal("none", Json(luis.GetExecutionResults()).GetProperty("status").GetString());
 
         await luis.LogDecisionAsync("A1", "execute", null, default);
@@ -236,21 +236,21 @@ public sealed class CostToServeToolsTests : IDisposable
         var proposed = PlaybookAction(dana, "A6");
         Assert.Equal(0.05, proposed.GetProperty("setting").GetProperty("value").GetDouble());
         Assert.False(proposed.GetProperty("setting").GetProperty("isDefault").GetBoolean());
-        Assert.Equal(Math.Round(Engine.WeeklySaving(new Levers { Pickup = 0.05 }, null)), proposed.GetProperty("estimatedWeeklySavingUsd").GetDouble());
+        Assert.Equal(Math.Round(Engine.WeeklySaving(new Levers { Pickup = 0.05 }, ["Southeast"])), proposed.GetProperty("estimatedWeeklySavingUsd").GetDouble());
 
         // Approving without a setting approves the proposed one.
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", null, default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", null, null, "Southeast", default)));
         Assert.Equal(0.05, _log.Entries[^1].Setting);
 
         // Finance changes the approval; repeating the same value is a conflict, and ops cannot change it.
         Assert.True(PlaybookAction(dana, "A6").GetProperty("canAmendSetting").GetBoolean());
         Assert.False(PlaybookAction(luis, "A6").GetProperty("canAmendSetting").GetBoolean());
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", "smaller pilot", 0.04, default)));
-        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, 0.04, default)));
-        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", "smaller pilot", 0.04, "Southeast", default)));
+        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, 0.04, "Southeast", default)));
+        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, null, "Southeast", default)));
         Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A6", "propose", null, 0.06, default)));
 
-        var scenario = Json(dana.RunScenario(0.5, 13, null, "A6", Levers.None));
+        var scenario = Json(dana.RunScenario(0.5, 13, "Southeast", "A6", Levers.None));
         Assert.Equal(0.04, scenario.GetProperty("levers").GetProperty("pickupShiftShare").GetDouble());
         Assert.Equal(["A6: Shift to Pickup 4%"], scenario.GetProperty("actionSettings").EnumerateArray().Select(x => x.GetString()));
 
@@ -271,7 +271,7 @@ public sealed class CostToServeToolsTests : IDisposable
         Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A4", "propose", null, 0.5, default)));
         Assert.Equal(0.5, PlaybookAction(dana, "A4").GetProperty("setting").GetProperty("value").GetDouble());
 
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A4", "reject", "too aggressive", default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A4", "reject", "too aggressive", null, "Southeast", default)));
         Assert.Null(_log.Entries[^1].Setting);
         Assert.Equal(0.4, PlaybookAction(dana, "A4").GetProperty("setting").GetProperty("value").GetDouble());
     }
@@ -282,25 +282,70 @@ public sealed class CostToServeToolsTests : IDisposable
         var dana = ToolsFor(DemoPersonas.Dana);
 
         // 50% batching drops Express within 3 hours below 80%.
-        Assert.Equal("scope_denied", await Error(dana.LogDecisionAsync("A1", "approve", null, 0.5, default)));
-        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A6", "approve", null, 0.5, default)));
-        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A3", "approve", null, 0.1, default)));
-        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A6", "reject", "no", 0.05, default)));
+        Assert.Equal("scope_denied", await Error(dana.LogDecisionAsync("A1", "approve", null, 0.5, "Southeast", default)));
+        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A6", "approve", null, 0.5, "Southeast", default)));
+        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A3", "approve", null, 0.1, "Southeast", default)));
+        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A6", "reject", "no", 0.05, "Southeast", default)));
         Assert.Empty(_log.Entries);
 
-        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A1", "approve", null, 0.4, default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A1", "approve", null, 0.4, "Southeast", default)));
         Assert.Equal(0.4, _log.Entries[^1].Setting);
     }
 
     private static JsonElement PlaybookAction(CostToServeTools tools, string id) =>
-        Json(tools.GetActionPlaybook(null)).GetProperty("actions").EnumerateArray().Single(a => a.GetProperty("actionId").GetString() == id);
+        Json(tools.GetActionPlaybook("Southeast")).GetProperty("actions").EnumerateArray().Single(a => a.GetProperty("actionId").GetString() == id);
+
+    [Fact]
+    public async Task Decisions_apply_to_one_region_only()
+    {
+        var dana = ToolsFor(DemoPersonas.Dana);
+        var luis = ToolsFor(DemoPersonas.Luis);
+
+        // Luis always decides for the Southeast and cannot act elsewhere.
+        Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A2", "propose", null, null, null, default)));
+        Assert.Equal("Southeast", _log.Entries[^1].Region);
+        Assert.Equal("scope_denied", await Error(luis.LogDecisionAsync("A4", "propose", null, null, "West", default)));
+
+        // Finance approves the only pending proposal without naming the region; otherwise a region is required.
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, default)));
+        Assert.Equal("Southeast", _log.Entries[^1].Region);
+        Assert.Equal("invalid_request", await Error(dana.LogDecisionAsync("A1", "approve", null, default)));
+        Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A1", "approve", null, null, "midwest", default)));
+        Assert.Equal("Midwest", _log.Entries[^1].Region);
+
+        var a2 = Json(dana.GetActionPlaybook(null)).GetProperty("actions").EnumerateArray().Single(a => a.GetProperty("actionId").GetString() == "A2");
+        Assert.False(a2.TryGetProperty("status", out _));
+        Assert.Equal(["Approved", "Not reviewed", "Not reviewed"],
+            a2.GetProperty("byRegion").EnumerateArray().Select(r => r.GetProperty("status").GetString()));
+        Assert.Equal(["Southeast"],
+            Json(luis.GetActionPlaybook(null)).GetProperty("actions")[0].GetProperty("byRegion").EnumerateArray().Select(r => r.GetProperty("region").GetString()));
+
+        // The plan applies A2 to the Southeast and A1 to the Midwest only.
+        var withPlan = Json(dana.RunScenario(0.5, 13, null, null, applyDecidedPlan: true, Levers.None));
+        var expected = Engine.Scenario(new Dictionary<string, Levers>
+        {
+            ["Southeast"] = new() { Closer = 0.2 },
+            ["Midwest"] = new() { Batch = 0.35 },
+            ["West"] = Levers.None,
+        }, 0.5, 13);
+        Assert.Equal(Math.Round(expected.ScenarioQuarterCost), withPlan.GetProperty("scenarioQuarterCostUsd").GetDouble());
+        Assert.Equal(["A2"], withPlan.GetProperty("decidedPlan").GetProperty("Southeast").EnumerateArray().Select(x => x.GetString()![..2]));
+        Assert.Empty(withPlan.GetProperty("decidedPlan").GetProperty("West").EnumerateArray());
+        Assert.True(withPlan.GetProperty("scenarioQuarterCostUsd").GetDouble()
+            > Json(dana.RunScenario(0.5, 13, null, "A1,A2", Levers.None)).GetProperty("scenarioQuarterCostUsd").GetDouble());
+
+        // Luis's scenario uses only the Southeast plan.
+        var luisPlan = Json(luis.RunScenario(0.5, 13, null, null, applyDecidedPlan: true, Levers.None));
+        Assert.Equal(Math.Round(Engine.Scenario(new Levers { Closer = 0.2 }, 0.5, 13, ["Southeast"]).ScenarioQuarterCost),
+            luisPlan.GetProperty("scenarioQuarterCostUsd").GetDouble());
+    }
 
     [Fact]
     public async Task Declined_confirmation_logs_nothing()
     {
         _confirmer.Answer = false;
 
-        var status = await Status(ToolsFor(DemoPersonas.Dana).LogDecisionAsync("A2", "approve", null, default));
+        var status = await Status(ToolsFor(DemoPersonas.Dana).LogDecisionAsync("A2", "approve", null, null, "Southeast", default));
 
         Assert.Equal("not_recorded", status);
         Assert.Equal(1, _confirmer.Calls);
@@ -335,7 +380,7 @@ public sealed class CostToServeToolsTests : IDisposable
         var lines = File.ReadAllLines(log.Path);
         var read = log.ReadAll();
 
-        Assert.EndsWith(",setting", lines[0]);
+        Assert.EndsWith(",setting,region", lines[0]);
         Assert.Equal([null, 0.045], read.Select(e => e.Setting));
         Assert.Equal(3, lines.Length);
     }

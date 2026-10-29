@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import type { ApiAuth } from "../auth";
 import { toPercent, usdCompact } from "../format";
+import type { WaitingItem } from "../pending";
 import type { Caller, DecisionRecord, ExecutionResults, Playbook, PlaybookAction } from "../types";
 import { ExecutionResultsView } from "./ExecutionResultsView";
 
@@ -11,6 +12,12 @@ interface Props {
   playbook: Playbook | null;
   decisions: DecisionRecord[];
   results: ExecutionResults | null;
+  /** The region these decisions apply to. Finance can switch; regional ops have one region. */
+  decisionRegion: string;
+  regions: string[];
+  onRegion: (region: string) => void;
+  /** Waiting items in every region, for the tab counts. */
+  waiting: WaitingItem[];
   onChanged: () => void;
 }
 
@@ -46,7 +53,7 @@ function waitingHint(action: PlaybookAction, isFinance: boolean) {
   }
 }
 
-export function ActionsPanel({ auth, caller, playbook, decisions, results, onChanged }: Props) {
+export function ActionsPanel({ auth, caller, playbook, decisions, results, decisionRegion, regions, onRegion, waiting, onChanged }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<{ actionId: string; text: string; error: boolean } | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
@@ -62,10 +69,10 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, onCha
     try {
       await api(auth, "/api/decisions", {
         method: "POST",
-        body: { actionId, decision, reason: why ?? null, setting: settingPct === undefined ? null : settingPct / 100 },
+        body: { actionId, decision, reason: why ?? null, setting: settingPct === undefined ? null : settingPct / 100, region: decisionRegion },
       });
       const at = settingPct === undefined ? "" : ` at ${settingPct}%`;
-      setFeedback({ actionId, text: `✓ ${PAST[decision]}${at} by you just now.`, error: false });
+      setFeedback({ actionId, text: `✓ ${PAST[decision]}${at} for ${decisionRegion} by you just now.`, error: false });
       setRejecting(null);
       setReason("");
       setDrafts(({ [actionId]: _, ...rest }) => rest);
@@ -86,8 +93,24 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, onCha
   return (
     <section className="panel">
       <h2>
-        Actions and decisions <span className="muted">· savings for {playbook?.savingsScope ?? "…"}</span>
+        Actions and decisions <span className="muted">· for {decisionRegion}</span>
       </h2>
+      {caller.canApprove ? (
+        <div className="region-tabs" role="tablist" aria-label="Region these decisions apply to">
+          <span className="muted small">Decide for</span>
+          {regions.map((r) => {
+            const count = waiting.filter((w) => w.region === r).length;
+            return (
+              <button key={r} role="tab" aria-selected={r === decisionRegion} className={r === decisionRegion ? "tab on" : "tab"} onClick={() => onRegion(r)}>
+                {r}
+                {count > 0 && <span className="tab-count">{count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="muted small">Your decisions apply to {decisionRegion} only.</p>
+      )}
       <ol className="workflow" aria-label="How decisions work">
         {steps.map((s) => (
           <li key={s.n} className={s.mine ? "mine" : ""}>
@@ -97,8 +120,9 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, onCha
         ))}
       </ol>
       <p className="muted small">
-        Approved actions are applied to the <strong>Scenario outcomes</strong> right away; revoking removes them. Every step is logged with who
-        and when. Savings are per action and not additive.
+        Each decision applies to one region: approving for {decisionRegion} changes {decisionRegion}'s numbers only. Approved actions are
+        applied to the <strong>Scenario outcomes</strong> right away; revoking removes them. Every step is logged with who, when and where.
+        Savings are for {decisionRegion}, per action, and not additive.
       </p>
       <table className="table actions-table">
         <colgroup>
@@ -255,7 +279,7 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, onCha
           {decisions.map((d) => (
             <li key={d.timestamp + d.actionId + d.decision}>
               <span className="muted">{when(d.timestamp)}</span> <strong>{d.actionId}</strong> {PAST[d.decision]?.toLowerCase() ?? d.decision}
-              {d.setting != null ? ` at ${toPercent(d.setting)}%` : ""} by {d.actor}
+              {d.setting != null ? ` at ${toPercent(d.setting)}%` : ""} for {d.region} by {d.actor}
               {d.reason ? ` - "${d.reason}"` : ""}
             </li>
           ))}

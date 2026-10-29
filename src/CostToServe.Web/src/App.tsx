@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api, loadPersona, savePersona } from "./api";
 import { EntraAuth, loadAuthConfig, personaAuth, type ApiAuth, type AuthConfig } from "./auth";
-import { focusAction, waitingFor, waitingLabel } from "./pending";
-import { toPercent } from "./format";
+import { focusAction, leversAt, planIn, waitingFor, waitingLabel, type WaitingItem } from "./pending";
 import { ActionsPanel } from "./components/ActionsPanel";
 import { ChatPanel } from "./components/ChatPanel";
 import { FuelPanel } from "./components/FuelPanel";
@@ -129,38 +128,41 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
   // Approved (or executed) actions are always applied to the outcomes unless the user turns the plan off to compare.
   const [includePlan, setIncludePlan] = useState(true);
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
+  // Decisions apply to one region at a time: regional ops to their own, finance to the region chosen in Actions and decisions.
+  const [decisionRegion, setDecisionRegion] = useState("");
 
   useEffect(() => {
     api<Dashboard>(auth, "/api/dashboard")
-      .then(setDashboard)
+      .then((d) => {
+        setDashboard(d);
+        setDecisionRegion((current) => current || d.regions[0] || "");
+      })
       .catch((e: Error) => setLoadError(e.message));
   }, [auth]);
 
   const refreshDecisions = useCallback(() => {
-    api<Playbook>(auth, `/api/playbook${region ? `?region=${encodeURIComponent(region)}` : ""}`).then(setPlaybook, () => setPlaybook(null));
+    if (!decisionRegion) {
+      return;
+    }
+    api<Playbook>(auth, `/api/playbook?region=${encodeURIComponent(decisionRegion)}`).then(setPlaybook, () => setPlaybook(null));
     api<DecisionRecord[]>(auth, "/api/decisions").then(setDecisions, () => setDecisions([]));
     api<ExecutionResults>(auth, "/api/results").then(setResults, () => setResults(null));
-  }, [auth, region]);
+  }, [auth, decisionRegion]);
 
   useEffect(refreshDecisions, [refreshDecisions]);
 
-  const planActions = useMemo(
-    () => (playbook?.actions ?? []).filter((a) => a.status === "Approved" || a.status === "Executed"),
-    [playbook],
-  );
-  const planIds = planActions.map((a) => a.actionId).join(",");
-  // The server applies each action at its decided setting; the lever floors use the same values.
-  const actionLevers = useMemo(
-    () =>
-      Object.fromEntries(
-        (playbook?.actions ?? [])
-          .filter((a) => a.levers)
-          .map((a) => [a.actionId, { levers: a.levers!, setting: a.setting ? `${toPercent(a.setting.value)}%` : null }]),
-      ),
-    [playbook],
-  );
+  // The plan is each region's approved and executed actions; each applies only in its own region.
+  const modeledRegions = useMemo(() => (region ? [region] : (dashboard?.regions ?? [])), [region, dashboard]);
+  const singleRegion = modeledRegions.length === 1 ? modeledRegions[0] : null;
+  const defaults = useMemo(() => Object.fromEntries((dashboard?.actions ?? []).map((a) => [a.id, a.levers])), [dashboard]);
+  const plan = useMemo(() => planIn(playbook?.actions ?? [], modeledRegions, defaults), [playbook, modeledRegions, defaults]);
+  const planKey = plan.map((p) => `${p.region}:${p.actionId}:${p.settingText}`).join(",");
   const waiting = useMemo(() => (dashboard && playbook ? waitingFor(dashboard.caller, playbook.actions) : []), [dashboard, playbook]);
-  const appliedPlanIds = includePlan ? planIds : "";
+  const applyPlan = includePlan && plan.length > 0;
+  const showWaiting = (w: WaitingItem) => {
+    setDecisionRegion(w.region);
+    setTimeout(() => focusAction(w.actionId), 300);
+  };
 
   // Recompute the scenario on the server (same engine and scope rules as the agent's tools):
   // approved actions plus the what-if levers on top (the server takes the larger value of each lever).
@@ -173,7 +175,7 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
       setScenarioLoading(true);
       api<ScenarioResult>(auth, "/api/scenario", {
         method: "POST",
-        body: { dieselShift, durationWeeks: duration, levers, actionIds: appliedPlanIds || null, region: region || null },
+        body: { dieselShift, durationWeeks: duration, levers, actionIds: null, applyPlan, region: region || null },
         signal: controller.signal,
       })
         .then((r) => {
@@ -191,18 +193,32 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
       clearTimeout(timer);
       controller.abort();
     };
-  }, [auth, dashboard, dieselShift, duration, levers, region, appliedPlanIds]);
+  }, [auth, dashboard, dieselShift, duration, levers, region, applyPlan, planKey]);
 
   const studioContext = useMemo(() => {
     const active = Object.entries(levers)
       .filter(([, v]) => v !== 0 && v !== false)
       .map(([k, v]) => `${k}=${v}`);
-    return `diesel change ${dieselShift >= 0 ? "+" : ""}${dieselShift.toFixed(2)} $/gal for ${duration} weeks; approved actions applied: ${
-      appliedPlanIds || "none"
-    }; extra what-if levers ${active.length ? active.join(", ") : "none"}; scope ${
+    const planText = applyPlan ? plan.map((p) => `${p.actionId}${p.settingText ? ` at ${p.settingText}` : ""} in ${p.region}`).join(", ") : "none";
+    return `diesel change ${dieselShift >= 0 ? "+" : ""}${dieselShift.toFixed(2)} $/gal for ${duration} weeks; approved plan applied (each action only in its region): ${planText}; decisions panel region ${decisionRegion}; extra what-if levers ${active.length ? active.join(", ") : "none"}; scope ${
       region || (dashboard?.caller.role === "RegionalOps" ? dashboard.caller.scope : "network")
     }`;
-  }, [dieselShift, duration, levers, region, dashboard, appliedPlanIds]);
+  }, [dieselShift, duration, levers, region, dashboard, applyPlan, plan, decisionRegion]);
+
+  // Lever floors and chips use one region's decided settings; with several regions the sliders show what-ifs only.
+  const regionLevers = useMemo(() => {
+    const entries = (playbook?.actions ?? []).map((a) => {
+      const r = singleRegion ? a.byRegion?.find((x) => x.region === singleRegion) : undefined;
+      return [a.actionId, { levers: leversAt(defaults[a.actionId], r?.setting), setting: r?.setting ? `${Math.round(r.setting.value * 1000) / 10}%` : null }];
+    });
+    return Object.fromEntries(entries) as Record<string, { levers: Levers; setting: string | null }>;
+  }, [playbook, singleRegion, defaults]);
+  const lockedActions = applyPlan && singleRegion ? [...new Set(plan.map((p) => p.actionId))] : [];
+  const planNote =
+    applyPlan && !singleRegion
+      ? `Approved actions apply only in their own region (${plan.map((p) => `${p.actionId} in ${p.region}`).join(", ")}). ` +
+        "The outcomes include them; the sliders show what-ifs for every region. Pick a region under Model to see its plan on the sliders."
+      : null;
 
   return (
     <Shell controls={controls}>
@@ -215,8 +231,8 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
             <strong>{dashboard.caller.displayName}</strong> · {dashboard.caller.title} · role {dashboard.caller.role} · data scope{" "}
             <strong>{dashboard.caller.scope}</strong> · this week {dashboard.period.currentWeek} · seed {dashboard.seedVersion}
             {waiting.length > 0 && (
-              <button className="waiting-badge" onClick={() => focusAction(waiting[0].actionId)} title="Show the first one">
-                🔔 {waitingLabel(dashboard.caller, waiting.length)}: {waiting.map((a) => a.actionId).join(", ")}
+              <button className="waiting-badge" onClick={() => showWaiting(waiting[0])} title="Show the first one">
+                🔔 {waitingLabel(dashboard.caller, waiting.length)}: {waiting.map((a) => `${a.actionId} (${a.region})`).join(", ")}
               </button>
             )}
           </div>
@@ -239,9 +255,15 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                 onChange={setLevers}
                 region={region}
                 onRegion={setRegion}
-                lockedActions={appliedPlanIds ? appliedPlanIds.split(",") : []}
-                onLockedClick={focusAction}
-                actionLevers={actionLevers}
+                lockedActions={lockedActions}
+                onLockedClick={(id) => {
+                  if (singleRegion) {
+                    setDecisionRegion(singleRegion);
+                  }
+                  setTimeout(() => focusAction(id), 300);
+                }}
+                actionLevers={regionLevers}
+                planNote={planNote}
               />
             </div>
             <div className="column wide">
@@ -251,7 +273,8 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                 loading={scenarioLoading}
                 costRows={dashboard.costPerOrder}
                 period={dashboard.period}
-                planActions={planActions.map((a) => ({ id: a.actionId, executed: a.status === "Executed" }))}
+                planActions={plan.map((p) => ({ id: p.actionId, region: p.region, setting: p.settingText, executed: p.executed }))}
+                multiRegion={!singleRegion}
                 includePlan={includePlan}
                 onIncludePlan={setIncludePlan}
               />
@@ -261,6 +284,10 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                 playbook={playbook}
                 decisions={decisions}
                 results={results}
+                decisionRegion={decisionRegion}
+                regions={dashboard.regions}
+                onRegion={setDecisionRegion}
+                waiting={waiting}
                 onChanged={refreshDecisions}
               />
             </div>
@@ -272,6 +299,7 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                 studioContext={studioContext}
                 playbook={playbook}
                 waiting={waiting}
+                decisionRegion={decisionRegion}
                 onDecisionLogged={refreshDecisions}
               />
             </div>

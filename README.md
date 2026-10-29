@@ -80,6 +80,11 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
 * Ask the agent questions. Tool calls appear as chips. When the agent asks to log a
   decision, a card appears; nothing is logged until you click Confirm.
 * Approve, reject, propose or execute from the actions table. Buttons follow the role.
+* Decisions apply to one region at a time. Luis proposes and executes for the Southeast only.
+  Dana picks the region with the "Decide for" tabs in Actions and decisions (each tab counts
+  what is waiting there). Approving A2 for the Southeast changes only the Southeast's numbers;
+  to roll it out, approve it for the Midwest and West too. In the whole-network view the
+  outcomes apply each approval in its own region, and the sliders show what-ifs only.
 * See what is waiting for you. A header badge counts the actions waiting on your role (Dana:
   proposals to approve or reject; Luis: approvals to execute). Those rows sort first and are
   highlighted, and the chat shows a "Waiting for you" banner with the buttons.
@@ -100,16 +105,17 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
   (A1-A6), decision buttons show each action's live status and your next steps. Or type a
   command; commands never go to the agent:
 
-  | Command                                      | Effect                                                |
-  |----------------------------------------------|-------------------------------------------------------|
-  | `/propose A1 [5%]`                           | Propose, optionally at another setting (regional ops) |
-  | `/approve A1 [5%] [reason]`                  | Approve, or change an approval's setting (finance)    |
-  | `/reject A1 <reason>`, `/revoke A1 <reason>` | Reject, or withdraw an approval (finance)             |
-  | `/execute A1`                                | Execute an approved action (regional ops)             |
-  | `/status [A1]`                               | Status and your next steps                            |
-  | `/help`                                      | List commands                                         |
+  | Command                                       | Effect                                                |
+  |-----------------------------------------------|-------------------------------------------------------|
+  | `/propose A1 [5%]`                            | Propose, optionally at another setting (regional ops) |
+  | `/approve A1 [region] [5%] [reason]`          | Approve for a region, or change its setting (finance) |
+  | `/reject A1 [region] <reason>`, `/revoke ...` | Reject, or withdraw an approval (finance)             |
+  | `/execute A1`                                 | Execute an approved action (regional ops)             |
+  | `/status [A1] [region]`                       | Status and your next steps                            |
+  | `/help`                                       | List commands                                         |
 
-  Buttons and commands use the same server checks as the actions table.
+  Without a region, commands use the region selected in Actions and decisions. Buttons and
+  commands use the same server checks as the actions table.
 
 For front-end development with hot reload, run the API and `npm run dev` in
 `src/CostToServe.Web`, then open `http://localhost:5173`; Vite proxies `/api` to port 5080.

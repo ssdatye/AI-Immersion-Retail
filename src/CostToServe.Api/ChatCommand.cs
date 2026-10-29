@@ -173,7 +173,8 @@ internal sealed class ConsoleDecisionConfirmer(TextReader input, TextWriter outp
     {
         output.WriteLine();
         output.WriteLine("+-- Confirm decision -------------------------------------------");
-        output.WriteLine($"| {proposal.Actor}: {proposal.Decision.ToString().ToUpperInvariant()} {proposal.ActionId} - {proposal.ActionName}");
+        output.WriteLine($"| {proposal.Actor}: {proposal.Decision.ToString().ToUpperInvariant()} {proposal.ActionId} - {proposal.ActionName}"
+            + (proposal.Region is { } region ? $" ({region})" : string.Empty));
         if (proposal.Setting is { } setting)
         {
             output.WriteLine($"| Setting: {setting}");

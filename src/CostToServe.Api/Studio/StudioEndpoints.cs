@@ -16,11 +16,11 @@ public sealed record ChatRequest(string? ConversationId, string Message);
 
 public sealed record ConfirmationRequest(bool Confirm);
 
-public sealed record ScenarioRequest(double DieselShift, int DurationWeeks, Levers? Levers, string? ActionIds, string? Region);
+public sealed record ScenarioRequest(double DieselShift, int DurationWeeks, Levers? Levers, string? ActionIds, string? Region, bool ApplyPlan = false);
 
-public sealed record GuardrailRequest(Levers? Levers, string? ActionIds);
+public sealed record GuardrailRequest(Levers? Levers, string? ActionIds, string? Region = null);
 
-public sealed record DecisionRequest(string ActionId, string Decision, string? Reason, double? Setting = null);
+public sealed record DecisionRequest(string ActionId, string Decision, string? Reason, double? Setting = null, string? Region = null);
 
 public static class StudioEndpoints
 {
@@ -126,10 +126,10 @@ public static class StudioEndpoints
         api.MapGet("/dashboard", (HttpContext http, StudioServices s) => Dashboard(Caller(http), s));
 
         api.MapPost("/scenario", (HttpContext http, StudioServices s, ScenarioRequest r) =>
-            ToResult(s.ToolsFor(Caller(http)).RunScenario(r.DieselShift, r.DurationWeeks, r.Region, r.ActionIds, r.Levers ?? Levers.None)));
+            ToResult(s.ToolsFor(Caller(http)).RunScenario(r.DieselShift, r.DurationWeeks, r.Region, r.ActionIds, r.ApplyPlan, r.Levers ?? Levers.None)));
 
         api.MapPost("/guardrail", (HttpContext http, StudioServices s, GuardrailRequest r) =>
-            ToResult(s.ToolsFor(Caller(http)).CheckGuardrail(r.ActionIds, r.Levers ?? Levers.None)));
+            ToResult(s.ToolsFor(Caller(http)).CheckGuardrail(r.ActionIds, r.Region, r.Levers ?? Levers.None)));
 
         api.MapGet("/playbook", (HttpContext http, StudioServices s, string? region) =>
             ToResult(s.ToolsFor(Caller(http)).GetActionPlaybook(region)));
@@ -144,10 +144,10 @@ public static class StudioEndpoints
 
         api.MapGet("/decisions", (StudioServices s) => s.DecisionLog.ReadAll()
             .OrderByDescending(d => d.Timestamp)
-            .Select(d => new { Timestamp = d.Timestamp.ToString("yyyy-MM-ddTHH:mm:ssZ"), d.ActionId, d.Actor, Decision = d.Decision.ToString().ToLowerInvariant(), d.Reason, d.Setting }));
+            .Select(d => new { Timestamp = d.Timestamp.ToString("yyyy-MM-ddTHH:mm:ssZ"), d.ActionId, d.Actor, Decision = d.Decision.ToString().ToLowerInvariant(), d.Reason, d.Setting, Region = d.EffectiveRegion }));
 
         api.MapPost("/decisions", async (HttpContext http, StudioServices s, DecisionRequest r, CancellationToken ct) =>
-            ToResult(await s.ToolsFor(Caller(http)).LogDecisionAsync(r.ActionId, r.Decision, r.Reason, r.Setting, ct)));
+            ToResult(await s.ToolsFor(Caller(http)).LogDecisionAsync(r.ActionId, r.Decision, r.Reason, r.Setting, r.Region, ct)));
 
         api.MapPost("/confirmations/{id}", (HttpContext http, StudioServices s, string id, ConfirmationRequest r) =>
             s.Confirmations.Resolve(id, Caller(http).Id, r.Confirm) ? Results.NoContent() : Results.NotFound());

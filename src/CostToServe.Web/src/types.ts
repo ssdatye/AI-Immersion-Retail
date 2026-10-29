@@ -96,6 +96,21 @@ export interface ScenarioResult {
   availabilityPct: number;
   guardrail: Guardrail;
   method: string;
+  decidedPlan?: Record<string, string[]> | null;
+}
+
+export type ActionStatus = "Not reviewed" | "Proposed" | "Approved" | "Rejected" | "Executed";
+
+/** One action's decision state in one region. Decisions apply to one region at a time. */
+export interface RegionDecision {
+  region: string;
+  status: ActionStatus;
+  availableDecisions: string[];
+  setting?: ActionSetting | null;
+  canAmendSetting: boolean;
+  latestDecisionBy?: string | null;
+  latestDecisionAt?: string | null;
+  latestDecisionReason?: string | null;
 }
 
 export interface PlaybookAction {
@@ -110,7 +125,9 @@ export interface PlaybookAction {
   estimatedWeeklySavingUsd: number | null;
   guardrailPassed: boolean | null;
   guardrailFindings: string[];
-  status: "Not reviewed" | "Proposed" | "Approved" | "Rejected" | "Executed";
+  /** Status and the fields below are for the playbook's decision region. */
+  status: ActionStatus;
+  region?: string | null;
   latestDecision: string;
   latestDecisionBy: string | null;
   latestDecisionAt: string | null;
@@ -123,6 +140,8 @@ export interface PlaybookAction {
   setting?: ActionSetting | null;
   /** True when the caller can change the setting of the current step (ops: their proposal; finance: an approval). */
   canAmendSetting: boolean;
+  /** Decision state in every region the caller can see. */
+  byRegion: RegionDecision[];
 }
 
 export interface ActionSetting {
@@ -138,6 +157,7 @@ export interface ActionSetting {
 }
 
 export interface Playbook {
+  decisionRegion?: string | null;
   savingsScope: string;
   savingsNote: string;
   actions: PlaybookAction[];
@@ -150,6 +170,7 @@ export interface DecisionRecord {
   decision: string;
   reason: string;
   setting: number | null;
+  region: string;
 }
 
 export interface ConfirmationCard {
@@ -162,6 +183,7 @@ export interface ConfirmationCard {
   estimatedWeeklySavingUsd: number | null;
   guardrailNotes: string[];
   setting?: string | null;
+  region?: string | null;
 }
 
 export interface ExecutionResults {

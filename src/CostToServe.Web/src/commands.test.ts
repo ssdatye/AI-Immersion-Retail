@@ -26,6 +26,16 @@ describe("parseCommand", () => {
     });
     expect(parseCommand("/propose a1 37.5%")).toEqual({ kind: "decision", decision: "propose", actionId: "A1", reason: "", setting: 0.375 });
     expect(parseCommand("/reject A1 50% too much")).toEqual({ kind: "decision", decision: "reject", actionId: "A1", reason: "50% too much" });
+    expect(parseCommand("/approve a2 midwest 25% roll out")).toEqual({
+      kind: "decision",
+      decision: "approve",
+      actionId: "A2",
+      reason: "roll out",
+      setting: 0.25,
+      region: "Midwest",
+    });
+    expect(parseCommand("/status A2 west")).toEqual({ kind: "status", actionId: "A2", region: "West" });
+    expect(parseCommand("/reject A2 Southeast too costly")).toMatchObject({ region: "Southeast", reason: "too costly" });
     expect(parseCommand("/revoke A1 stock risk")).toMatchObject({ kind: "decision", decision: "reject", reason: "stock risk" });
     expect(parseCommand("/reject A1")).toMatchObject({ kind: "invalid" });
     expect(parseCommand("/revoke A1")).toMatchObject({ kind: "invalid" });

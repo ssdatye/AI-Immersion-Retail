@@ -139,8 +139,12 @@ public static class CostToServeAgentFactory
             - Recommend only playbook actions. Prefer the least customer impact that meets the goal and passes guardrails; show the trade-off.
             - Never recommend shelf-price changes or sharing one supplier's prices with another.
             - Role and scope are enforced by the tools. If a tool returns scope_denied, explain the limit; do not try to work around it.
-            - Workflow per action: Not reviewed -> Proposed (RegionalOps) -> Approved or Rejected (FinanceAnalyst) -> Executed (RegionalOps).
-              get_action_playbook shows each action's Status and the AvailableDecisions for this user; a "conflict" result means the step is out of order.
+            - Workflow per action and region: Not reviewed -> Proposed (RegionalOps) -> Approved or Rejected (FinanceAnalyst) -> Executed (RegionalOps).
+              Decisions apply to one region at a time; an approval for the Southeast does not change the Midwest or West. Pass region to
+              log_decision (regional ops always decide for their own region). get_action_playbook shows Status and AvailableDecisions for
+              a region, or ByRegion for the whole network; a "conflict" result means the step is out of order.
+            - To show the effect of the current plan (approved or executed actions, each in its own region), call run_scenario with
+              apply_decided_plan=true. action_ids models actions as a what-if in every region you model.
             - log_decision only records a decision in the demo log; it does not change real operations. Say "logged", not "done".
             - A1, A2, A4 and A6 have an adjustable Setting (get_action_playbook shows the current value and range). Pass setting
               to log_decision only when the user asks for a different value; savings and guardrail results use the decided setting.

@@ -3,7 +3,8 @@ import { api, streamChat } from "../api";
 import type { ApiAuth } from "../auth";
 import { COMMAND_HELP, mentionedActions, parseCommand } from "../commands";
 import { toPercent, usd } from "../format";
-import type { ConfirmationCard, Playbook, PlaybookAction } from "../types";
+import type { WaitingItem } from "../pending";
+import type { ConfirmationCard, Playbook } from "../types";
 import { when } from "./ActionsPanel";
 import { DecisionStrip, pastTense, submitDecision } from "./DecisionStrip";
 
@@ -15,6 +16,8 @@ interface Turn {
   role: "user" | "agent" | "system";
   /** Actions to show decision buttons for (system turns). Agent turns use the IDs mentioned in their text. */
   actionIds?: string[];
+  /** Region for those buttons; defaults to the selected decision region. */
+  region?: string;
   text: string;
   tools: { name: string; outcome: string }[];
   cards: (ConfirmationCard & { status: CardStatus })[];
@@ -29,12 +32,14 @@ interface Props {
   suggestions: string[];
   studioContext: string;
   playbook: Playbook | null;
-  /** Actions waiting for this user (proposals to decide or approvals to execute). */
-  waiting: PlaybookAction[];
+  /** Actions waiting for this user, per region (proposals to decide or approvals to execute). */
+  waiting: WaitingItem[];
+  /** Region selected in Actions and decisions; used when a reply or command does not name one. */
+  decisionRegion: string;
   onDecisionLogged: () => void;
 }
 
-export function ChatPanel({ auth, displayName, suggestions, studioContext, playbook, waiting, onDecisionLogged }: Props) {
+export function ChatPanel({ auth, displayName, suggestions, studioContext, playbook, waiting, decisionRegion, onDecisionLogged }: Props) {
   const [turns, setTurns] = useState<Turn[]>([
     {
       id: 0,
@@ -72,21 +77,24 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
         return;
       case "status": {
         const ids = command.actionId ? [command.actionId] : (playbook?.actions.map((a) => a.actionId) ?? []);
-        addTurns({ role: "user", text }, { role: "system", text: "Current status and your next steps:", actionIds: ids });
+        const region = command.region ?? decisionRegion;
+        addTurns({ role: "user", text }, { role: "system", text: `Status for ${region} and your next steps:`, actionIds: ids, region });
         return;
       }
       case "decision":
         setBusy(true);
         try {
-          await submitDecision(auth, command.actionId, command.decision, command.reason, command.setting);
+          const region = command.region ?? decisionRegion;
+          await submitDecision(auth, command.actionId, command.decision, command.reason, command.setting, region);
           addTurns(
             { role: "user", text },
             {
               role: "system",
               text: `✓ ${command.actionId} ${pastTense(command.decision).toLowerCase()}${
                 command.setting !== undefined ? ` at ${toPercent(command.setting)}%` : ""
-              } by you${command.reason ? ` ("${command.reason}")` : ""}. Logged.`,
+              } for ${region} by you${command.reason ? ` ("${command.reason}")` : ""}. Logged.`,
               actionIds: [command.actionId],
+              region,
             },
           );
           onDecisionLogged();
@@ -174,13 +182,19 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
           <div className="waiting-title">🔔 Waiting for you</div>
           {waiting.map((a) => (
             <div key={a.actionId} className="muted small">
-              {a.actionId} {a.action} · {a.status.toLowerCase()}
+              {a.actionId} {a.action} · <strong>{a.region}</strong> · {a.status.toLowerCase()}
               {a.setting ? ` at ${toPercent(a.setting.value)}%` : ""}
               {a.latestDecisionBy ? ` by ${a.latestDecisionBy}` : ""}
               {a.latestDecisionAt ? ` · ${when(a.latestDecisionAt)}` : ""}
             </div>
           ))}
-          <DecisionStrip auth={auth} actionIds={waiting.map((a) => a.actionId)} playbook={playbook} onDecided={onDecisionLogged} />
+          <DecisionStrip
+            auth={auth}
+            items={waiting.map((a) => ({ actionId: a.actionId, region: a.region }))}
+            playbook={playbook}
+            showRegion
+            onDecided={onDecisionLogged}
+          />
         </div>
       )}
       <div className="chat-log" ref={log}>
@@ -202,7 +216,10 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
                 <div className="confirm-title">
                   Confirm: {c.actor} → {c.decision.toUpperCase()} {c.actionId}
                 </div>
-                <div>{c.actionName}</div>
+                <div>
+                  {c.actionName}
+                  {c.region ? ` · for ${c.region}` : ""}
+                </div>
                 {c.setting && <div>Setting: {c.setting}</div>}
                 {c.reason && <div className="muted">Reason: {c.reason}</div>}
                 {c.estimatedWeeklySavingUsd != null && <div className="muted">Modeled weekly saving: {usd(c.estimatedWeeklySavingUsd, 0)}</div>}
@@ -231,7 +248,8 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
             {(t.role === "system" || (t.role === "agent" && !t.streaming && t.id !== 0)) && (
               <DecisionStrip
                 auth={auth}
-                actionIds={t.actionIds ?? mentionedActions(t.text)}
+                items={(t.actionIds ?? mentionedActions(t.text)).map((actionId) => ({ actionId, region: t.region ?? decisionRegion }))}
+                showRegion
                 playbook={playbook}
                 onDecided={onDecisionLogged}
               />

@@ -1,15 +1,60 @@
-import type { Caller, PlaybookAction } from "./types";
+import type { ActionSetting, ActionStatus, Caller, Levers, PlaybookAction } from "./types";
+
+/** An action waiting for this caller in one region. */
+export interface WaitingItem {
+  actionId: string;
+  action: string;
+  region: string;
+  status: ActionStatus;
+  setting?: ActionSetting | null;
+  latestDecisionBy?: string | null;
+  latestDecisionAt?: string | null;
+}
 
 /**
- * Actions waiting for this caller: proposals for Finance to decide, and approvals for
- * regional ops to execute.
+ * Actions waiting for this caller, per region: proposals for Finance to decide, and approvals
+ * for regional ops to execute.
  */
-export function waitingFor(caller: Caller, actions: PlaybookAction[]): PlaybookAction[] {
-  return actions.filter((a) => (caller.canApprove ? a.status === "Proposed" : a.status === "Approved"));
+export function waitingFor(caller: Caller, actions: PlaybookAction[]): WaitingItem[] {
+  return actions.flatMap((a) =>
+    (a.byRegion ?? [])
+      .filter((r) => (caller.canApprove ? r.status === "Proposed" : r.status === "Approved"))
+      .map((r) => ({ actionId: a.actionId, action: a.action, ...r })),
+  );
 }
 
 export const waitingLabel = (caller: Caller, count: number) =>
   caller.canApprove ? `${count} to approve or reject` : `${count} ready to execute`;
+
+/** An approved or executed action in one region: part of that region's plan. */
+export interface PlanItem {
+  actionId: string;
+  region: string;
+  executed: boolean;
+  levers: Levers;
+  settingText: string | null;
+}
+
+/** The plan in the given regions. Each action applies only in the region it was approved for. */
+export function planIn(actions: PlaybookAction[], regions: string[], defaults: Record<string, Levers>): PlanItem[] {
+  return actions.flatMap((a) =>
+    (a.byRegion ?? [])
+      .filter((r) => regions.includes(r.region) && (r.status === "Approved" || r.status === "Executed"))
+      .map((r) => ({
+        actionId: a.actionId,
+        region: r.region,
+        executed: r.status === "Executed",
+        levers: leversAt(defaults[a.actionId], r.setting),
+        settingText: r.setting ? `${Math.round(r.setting.value * 1000) / 10}%` : null,
+      })),
+  );
+}
+
+/** An action's levers at a decided setting (the setting replaces its one adjustable lever). */
+export function leversAt(defaults: Levers | undefined, setting?: ActionSetting | null): Levers {
+  const base = defaults ?? { batch: 0, closer: 0, split: 0, pickup: 0, fee: 0, basket: false, cap: false };
+  return setting ? { ...base, [setting.lever]: setting.value } : base;
+}
 
 /** Scrolls to an action's row in the actions table and highlights it briefly. */
 export function focusAction(actionId: string) {

@@ -119,6 +119,8 @@ public sealed class CosmosDecisionLog(Container container) : IDecisionLog
 
         public double? Setting { get; set; }
 
+        public string? Region { get; set; }
+
         public static DecisionDocument From(DecisionEntry e) => new()
         {
             Id = Guid.NewGuid().ToString("n"),
@@ -128,6 +130,7 @@ public sealed class CosmosDecisionLog(Container container) : IDecisionLog
             Decision = e.Decision.ToString().ToLowerInvariant(),
             Reason = e.Reason,
             Setting = e.Setting,
+            Region = e.Region,
         };
 
         public DecisionEntry ToEntry() => new(
@@ -136,7 +139,8 @@ public sealed class CosmosDecisionLog(Container container) : IDecisionLog
             Actor,
             Enum.Parse<DecisionKind>(Decision, ignoreCase: true),
             Reason,
-            Setting);
+            Setting,
+            Region);
     }
 }
 

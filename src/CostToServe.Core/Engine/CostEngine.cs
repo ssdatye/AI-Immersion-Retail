@@ -164,6 +164,57 @@ public sealed class CostEngine(IWeeklyInputs inputs)
             100 - (levers.Basket ? 5 : 0) - 4 * Math.Max(0, levers.Fee));
     }
 
+    /// <summary>
+    /// Quarter view with different levers per region (for example, an action approved only for the
+    /// Southeast). Weekly costs add up by region, so this is the sum of each region's scenario; with
+    /// the same levers everywhere it equals <see cref="Scenario(Levers, double, int, IReadOnlyCollection{string}?)"/>.
+    /// Express within 3 hours is the lowest region's (the guardrail must hold everywhere); promise
+    /// kept and availability are weighted by orders.
+    /// </summary>
+    public ScenarioResult Scenario(IReadOnlyDictionary<string, Levers> leversByRegion, double dieselShift, int durationWeeks)
+    {
+        if (leversByRegion.Count == 0)
+        {
+            throw new ArgumentException("At least one region is required.", nameof(leversByRegion));
+        }
+
+        var parts = leversByRegion.Select(kv => (Result: Scenario(kv.Value, dieselShift, durationWeeks, [kv.Key]),
+            Orders: Weekly(Levers.None, 0, [kv.Key]).Orders)).ToArray();
+        var totalOrders = parts.Sum(p => p.Orders);
+        double Weighted(Func<ScenarioResult, double> f) => parts.Sum(p => f(p.Result) * p.Orders) / totalOrders;
+        double Sum(Func<ScenarioResult, double> f) => parts.Sum(p => f(p.Result));
+
+        var shockQuarter = Sum(r => r.FuelShockQuarterCost);
+        var scenarioQuarter = Sum(r => r.ScenarioQuarterCost);
+        var combined = leversByRegion.Values.Aggregate(Levers.None, (a, l) => new Levers
+        {
+            Batch = Math.Max(a.Batch, l.Batch),
+            Closer = Math.Max(a.Closer, l.Closer),
+            Split = Math.Max(a.Split, l.Split),
+            Pickup = Math.Max(a.Pickup, l.Pickup),
+            Fee = Math.Max(a.Fee, l.Fee),
+            Basket = a.Basket || l.Basket,
+            Cap = a.Cap || l.Cap,
+        });
+
+        return new ScenarioResult(
+            dieselShift,
+            durationWeeks,
+            combined,
+            parts.SelectMany(p => p.Result.Regions).ToArray(),
+            Sum(r => r.BaselineWeeklyCost),
+            Sum(r => r.ShockWeeklyCost),
+            Sum(r => r.LeversWeeklyCost),
+            Sum(r => r.CombinedWeeklyCost),
+            shockQuarter,
+            scenarioQuarter,
+            -scenarioQuarter,
+            shockQuarter > 0 ? (shockQuarter - scenarioQuarter) / shockQuarter : null,
+            parts.Min(p => p.Result.ExpressWithin3HoursPct),
+            Weighted(r => r.PromiseKeptPct),
+            Weighted(r => r.AvailabilityPct));
+    }
+
     /// <summary>Modeled share of Express orders delivered within 3 hours (illustrative, not telemetry).</summary>
     public static double ExpressWithin3HoursPct(Levers levers) => 100 - 45 * levers.Batch - (levers.Basket ? 2 : 0);
 
