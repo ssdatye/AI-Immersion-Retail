@@ -21,7 +21,7 @@ param useFreeLimit bool = true
 param databaseName string = 'costtoserve'
 
 resource server 'Microsoft.Sql/servers@2023-08-01' = {
-  name: 'cts-sql-${nameSuffix}'
+  name: 'cts-sql-${nameSuffix}-${location}'
   location: location
   tags: tags
   properties: {

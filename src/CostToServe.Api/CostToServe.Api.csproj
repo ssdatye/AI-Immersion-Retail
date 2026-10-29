@@ -1,5 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
 
+  <PropertyGroup>
+    <!-- Microsoft.Data.SqlClient does not support invariant globalization mode. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\CostToServe.Core\CostToServe.Core.csproj" />
     <ProjectReference Include="..\CostToServe.Agent\CostToServe.Agent.csproj" />

@@ -21,6 +21,32 @@ public sealed class EntraOptions
     /// </summary>
     public Dictionary<string, string> RegionalOpsRegions { get; init; } = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// The same mapping as one value, "objectId=Region;objectId=Region". App Service on Linux does not
+    /// allow hyphens in setting names, so object IDs cannot be keys there.
+    /// </summary>
+    public string? RegionalOpsAssignments { get; init; }
+
+    /// <summary>Region for a RegionalOps user from either setting, or null (fail closed).</summary>
+    public string? RegionFor(string objectId)
+    {
+        if (RegionalOpsRegions.TryGetValue(objectId, out var region))
+        {
+            return region;
+        }
+
+        foreach (var pair in (RegionalOpsAssignments ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var parts = pair.Split('=', 2, StringSplitOptions.TrimEntries);
+            if (parts.Length == 2 && string.Equals(parts[0], objectId, StringComparison.OrdinalIgnoreCase) && parts[1].Length > 0)
+            {
+                return parts[1];
+            }
+        }
+
+        return null;
+    }
+
     public bool IsConfigured => !string.IsNullOrWhiteSpace(TenantId) && !string.IsNullOrWhiteSpace(ClientId);
 
     public string Authority => $"https://login.microsoftonline.com/{TenantId}/v2.0";
@@ -63,7 +89,7 @@ public static class EntraCallerMapper
 
         if (roles.Contains(EntraOptions.RegionalOpsRole))
         {
-            var region = options.RegionalOpsRegions.GetValueOrDefault(objectId);
+            var region = options.RegionFor(objectId);
             var canonical = knownRegions.FirstOrDefault(r => string.Equals(r, region, StringComparison.OrdinalIgnoreCase));
             return canonical is null
                 ? (CallerResolution.NoRegion, null)

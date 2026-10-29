@@ -46,6 +46,12 @@ param githubRepository string = 'ssdatye/AI-Immersion-Retail'
 
 param githubEnvironment string = 'demo'
 
+@description('Region for the Azure SQL server only. East US 2 was not accepting new SQL servers (RegionDoesNotAllowProvisioning) on October 29, 2026.')
+param sqlLocation string = 'centralus'
+
+@description('Region for the App Service plan and web app. The subscription had no App Service quota in East US 2 on October 29, 2026 (SubscriptionIsOverQuotaForSku, limit 0).')
+param appLocation string = 'centralus'
+
 @description('Use the Azure SQL free offer. Set false if this subscription already used it.')
 param useSqlFreeLimit bool = true
 
@@ -135,7 +141,7 @@ module sql 'modules/sql.bicep' = if (deployPlatform) {
   scope: rg
   name: 'sql'
   params: {
-    location: location
+    location: sqlLocation
     nameSuffix: nameSuffix
     tags: tags
     adminLogin: developerLogin
@@ -165,7 +171,7 @@ module web 'modules/appservice.bicep' = if (deployPlatform) {
   scope: rg
   name: 'appservice'
   params: {
-    location: location
+    location: appLocation
     tags: tags
     webAppName: webAppName
     planName: 'cts-plan-${nameSuffix}'

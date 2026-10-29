@@ -39,9 +39,29 @@ public static partial class SqlSeedStore
         };
     }
 
-    /// <summary>Reads every seed table and the seed version.</summary>
+    /// <summary>
+    /// Reads every seed table and the seed version. Retries for about two minutes, because a paused
+    /// serverless database rejects connections while it resumes (error 40613) and transient
+    /// transport errors happen.
+    /// </summary>
     public static async Task<(IReadOnlyDictionary<string, SeedTable> Tables, string Version)> LoadAsync(
         SqlOptions options, TokenCredential credential, CancellationToken ct = default)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                return await LoadOnceAsync(options, credential, ct).ConfigureAwait(false);
+            }
+            catch (SqlException) when (attempt < 8)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(15), ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static async Task<(IReadOnlyDictionary<string, SeedTable> Tables, string Version)> LoadOnceAsync(
+        SqlOptions options, TokenCredential credential, CancellationToken ct)
     {
         await using var connection = Connect(options, credential);
         await connection.OpenAsync(ct).ConfigureAwait(false);

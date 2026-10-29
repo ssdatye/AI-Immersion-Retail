@@ -173,3 +173,21 @@ public sealed class EntraAuthTests(EntraFactory factory) : IClassFixture<EntraFa
         Assert.Null(caller);
     }
 }
+
+public sealed class EntraOptionsTests
+{
+    [Fact]
+    public void Regions_come_from_the_keyed_map_or_the_single_value_setting()
+    {
+        var options = new EntraOptions
+        {
+            RegionalOpsRegions = new(StringComparer.OrdinalIgnoreCase) { ["aaaa-1"] = "West" },
+            RegionalOpsAssignments = " bbbb-2 = Southeast ; cccc-3= ;bad",
+        };
+
+        Assert.Equal("West", options.RegionFor("AAAA-1"));
+        Assert.Equal("Southeast", options.RegionFor("bbbb-2"));
+        Assert.Null(options.RegionFor("cccc-3"));
+        Assert.Null(options.RegionFor("dddd-4"));
+    }
+}

@@ -2,7 +2,7 @@
 title: "ADR 004: Hosted platform on Azure"
 description: "Increment 5 decisions: front door, data in Azure SQL and Cosmos DB, AI gateway, deploy identity, monitoring, cost and shutdown."
 ms.date: 2026-10-29
-status: Accepted (provisioning pending approval)
+status: Accepted (provisioned October 29, 2026)
 ---
 
 ## Context
@@ -48,6 +48,11 @@ studio still validates the Entra token and app roles itself (ADR 003).
   Entra admin. It verifies `SHA256SUMS`, replaces the seed tables, reads them back, and
   grants the studio identity `SELECT` on schema `seed` only. The script opens a firewall
   rule for the developer's IP and removes it on exit.
+* The SQL server is in Central US, in the same resource group. East US 2 (and East US) were
+  not accepting new SQL servers on October 29, 2026 (`RegionDoesNotAllowProvisioning`). The
+  data is read once at startup, so the cross-region hop does not affect what-if latency. The
+  server name includes its region, because the failed East US 2 attempt kept the plain name
+  reserved there.
 * The database uses the free offer (`useFreeLimit`, auto-pause on exhaustion) and auto-pauses
   after 60 idle minutes. App Service Basic has no fixed outbound IP, so the server allows
   Azure-internal traffic; it accepts Entra tokens only (no SQL logins).
@@ -96,6 +101,14 @@ daily cap.
 Service Bus, the ingestion Function and Storage from the reference capture content
 asynchronously for evaluations. They move to Increment 6, where the evaluation design
 decides whether the `threads` container is enough.
+
+## Regions
+
+Everything is in East US 2 except the App Service and SQL, which are in Central US, in the
+same resource group. On October 29, 2026 East US 2 was not accepting new SQL servers
+(`RegionDoesNotAllowProvisioning`), and the subscription had no App Service quota there at
+any tier (limit 0). Central US had both. The studio reads SQL once at startup, and the extra
+APIM to App Service hop adds a few tens of milliseconds per request.
 
 ## Resources
 

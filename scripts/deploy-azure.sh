@@ -66,7 +66,7 @@ if [[ "$mode" == "what-if" ]]; then
 fi
 
 if [[ "$confirmed" != true ]]; then
-  echo "This creates billable resources (about \$85-110/month while they exist; see docs/adr/004)."
+  echo "This creates billable resources (about \$79-110/month while they exist; see docs/adr/004)."
   read -r -p "Type 'deploy' to continue: " answer
   [[ "$answer" == "deploy" ]] || { echo "Cancelled. Nothing changed."; exit 1; }
 fi

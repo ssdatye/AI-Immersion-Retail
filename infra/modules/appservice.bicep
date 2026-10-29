@@ -100,10 +100,13 @@ var baseSettings = [
   }
 ]
 
-var regionSettings = [for item in items(regionalOpsRegions): {
-  name: 'Entra__RegionalOpsRegions__${item.key}'
-  value: item.value
-}]
+// App Service on Linux rejects hyphens in setting names, so the object-ID map is one value.
+var regionSettings = empty(regionalOpsRegions) ? [] : [
+  {
+    name: 'Entra__RegionalOpsAssignments'
+    value: join(map(items(regionalOpsRegions), item => '${item.key}=${item.value}'), ';')
+  }
+]
 
 resource web 'Microsoft.Web/sites@2024-04-01' = {
   name: webAppName
