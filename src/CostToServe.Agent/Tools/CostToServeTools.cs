@@ -22,7 +22,7 @@ public sealed class CostToServeTools(
     IDecisionLog decisionLog,
     IDecisionConfirmer confirmer,
     TimeProvider? timeProvider = null,
-    Action<string, string>? onToolCompleted = null,
+    Action<string, string, object?>? onToolCompleted = null,
     ActionCatalog? actions = null)
 {
     public const string GetCostPerOrderName = "get_cost_per_order";
@@ -783,7 +783,7 @@ public sealed class CostToServeTools(
     private object Completed(string member, string scope, string outcome, object result)
     {
         AgentTelemetry.TagTool(caller.Role.ToString(), scope, outcome);
-        onToolCompleted?.Invoke(ToolNames.GetValueOrDefault(member, member), outcome);
+        onToolCompleted?.Invoke(ToolNames.GetValueOrDefault(member, member), outcome, result);
         return result;
     }
 

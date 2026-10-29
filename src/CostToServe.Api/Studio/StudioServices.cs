@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading.Channels;
 using Azure.Core;
 using CostToServe.Agent.Decisions;
@@ -8,6 +10,7 @@ using CostToServe.Agent.Tools;
 using CostToServe.Core.Data;
 using CostToServe.Core.Engine;
 using Microsoft.Agents.AI;
+using Microsoft.Extensions.AI;
 using OpenAI;
 
 namespace CostToServe.Api.Studio;
@@ -62,14 +65,32 @@ public sealed class StudioServices
     public CostToServeTools ToolsFor(CallerContext caller) =>
         new(Data, Engine, caller, DecisionLog, AutoConfirmer.Instance, actions: Actions);
 
+    /// <summary>Recent answers for the Trust Center (in memory).</summary>
+    public TrustLog Trust { get; } = new();
+
     public Conversation StartConversation(CallerContext caller)
     {
         var relay = new EventRelay();
         var confirmer = new WebDecisionConfirmer(Confirmations, relay, caller.Id);
+        var turnTools = new List<TurnToolCall>();
         var tools = new CostToServeTools(Data, Engine, caller, DecisionLog, confirmer,
-            onToolCompleted: (name, outcome) => relay.Emit(new StudioEvent("tool", new { name, outcome })), actions: Actions);
+            onToolCompleted: (name, outcome, result) =>
+            {
+                lock (turnTools)
+                {
+                    turnTools.Add(new TurnToolCall(name, outcome, JsonSerializer.SerializeToNode(result, AIJsonUtilities.DefaultOptions)));
+                }
+
+                relay.Emit(new StudioEvent("tool", new { name, outcome }));
+            },
+            actions: Actions);
         var agent = CostToServeAgentFactory.Create(_client.Value, Foundry, tools, Data);
-        return Conversations.Add(new Conversation(Guid.NewGuid().ToString("n"), caller.Id, agent, relay));
+        return Conversations.Add(new Conversation(Guid.NewGuid().ToString("n"), caller.Id, agent, relay)
+        {
+            Caller = caller,
+            Instructions = CostToServeAgentFactory.BuildInstructions(caller, Data),
+            TurnTools = turnTools,
+        });
     }
 
     private sealed class AutoConfirmer : IDecisionConfirmer
@@ -105,6 +126,14 @@ public sealed class Conversation(string id, string owner, AIAgent agent, EventRe
     public AgentSession? Session { get; set; }
 
     public SemaphoreSlim Gate { get; } = new(1, 1);
+
+    public CallerContext? Caller { get; init; }
+
+    /// <summary>The agent's instructions, a source for numbers such as the 80% guardrail.</summary>
+    public string? Instructions { get; init; }
+
+    /// <summary>Tool calls of the turn in progress; cleared when a turn starts. One turn runs at a time (Gate).</summary>
+    public List<TurnToolCall> TurnTools { get; init; } = [];
 
     public DateTimeOffset LastUsed { get; set; } = DateTimeOffset.UtcNow;
 }

@@ -4,6 +4,7 @@ import { EntraAuth, loadAuthConfig, personaAuth, type ApiAuth, type AuthConfig }
 import { focusAction, leversAt, planIn, waitingFor, waitingLabel, type WaitingItem } from "./pending";
 import { ActionsPanel } from "./components/ActionsPanel";
 import { ChatPanel } from "./components/ChatPanel";
+import { TrustCenter } from "./components/TrustCenter";
 import { FuelPanel } from "./components/FuelPanel";
 import { LeversPanel } from "./components/LeversPanel";
 import { Outcomes } from "./components/Outcomes";
@@ -130,6 +131,9 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
   const [decisions, setDecisions] = useState<DecisionRecord[]>([]);
   // Decisions apply to one region at a time: regional ops to their own, finance to the region chosen in Actions and decisions.
   const [decisionRegion, setDecisionRegion] = useState("");
+  // The studio stays mounted while the Trust Center shows, so the chat and sliders keep their state.
+  const [tab, setTab] = useState<"studio" | "trust">("studio");
+  const [evidenceTick, setEvidenceTick] = useState(0);
 
   useEffect(() => {
     api<Dashboard>(auth, "/api/dashboard")
@@ -236,7 +240,18 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
               </button>
             )}
           </div>
-          <main>
+          <nav className="tabs" role="tablist">
+            <button role="tab" aria-selected={tab === "studio"} className={tab === "studio" ? "active" : ""} onClick={() => setTab("studio")}>
+              What-If Studio
+            </button>
+            <button role="tab" aria-selected={tab === "trust"} className={tab === "trust" ? "active" : ""} onClick={() => setTab("trust")}>
+              🛡 Trust Center
+            </button>
+          </nav>
+          <div hidden={tab !== "trust"}>
+            <TrustCenter auth={auth} caller={dashboard.caller} visible={tab === "trust"} refreshKey={evidenceTick} />
+          </div>
+          <main hidden={tab !== "studio"}>
             <div className="column">
               <FuelPanel
                 dashboard={dashboard}
@@ -301,6 +316,7 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                 waiting={waiting}
                 decisionRegion={decisionRegion}
                 onDecisionLogged={refreshDecisions}
+                onEvidence={() => setEvidenceTick((n) => n + 1)}
               />
             </div>
           </main>

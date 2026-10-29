@@ -111,6 +111,12 @@ builder.Services.AddSingleton(new StudioServices(
 builder.Services.AddProblemDetails();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// Keeps recent trace spans in memory for the Trust Center timeline (metadata only).
+var trustSpans = new TrustSpanStore();
+builder.Services.AddSingleton(trustSpans);
+builder.Services.AddSingleton(builder.Configuration.GetSection(TrustOptions.SectionName).Get<TrustOptions>() ?? new TrustOptions());
+var evaluationSummary = TrustEndpoints.LoadEvaluation(paths.EvalSummaryFile);
+
 var appInsights = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] is { Length: > 0 } cs ? cs : null;
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(r => r.AddService("cost-to-serve-studio"))
@@ -119,7 +125,8 @@ builder.Services.AddOpenTelemetry()
         tracing
             .AddAspNetCoreInstrumentation()
             .AddHttpClientInstrumentation()
-            .AddSource([.. AgentTelemetry.AllSources]);
+            .AddSource([.. AgentTelemetry.AllSources])
+            .AddProcessor(trustSpans);
         if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {
             tracing.AddOtlpExporter();
@@ -155,7 +162,7 @@ if (entra.IsConfigured)
     app.UseAuthentication();
 }
 
-app.MapStudio(entra, devPersonas);
+app.MapStudio(entra, devPersonas, evaluationSummary);
 app.MapFallback("/api/{**rest}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 

@@ -22,7 +22,7 @@ az login
 ./scripts/run-evals.sh --case dana-a1-a2-offset --skip-foundry   # one case
 ```
 
-The script writes the run folder to `evals/out/<UTC timestamp>/` (git-ignored: it holds full answers and tool results) and regenerates `docs/evals/report.md`. The Foundry step prints a portal link; the link is not saved because it contains subscription and resource IDs.
+The script writes the run folder to `evals/out/<UTC timestamp>/` (git-ignored: it holds full answers and tool results) and regenerates `docs/evals/report.md` and `docs/evals/summary.json`. The summary is what the studio's Trust Center shows; redeploy the app (`./scripts/deploy-app.sh`) to publish a new run. The Foundry step prints a portal link; the link is not saved because it contains subscription and resource IDs.
 
 Prerequisites: the demo's Foundry account and model (`./scripts/deploy-foundry.sh` or `./scripts/deploy-azure.sh --apply`), which also create `proj-evals` and give you the Foundry User and Cognitive Services User roles on the account; .NET 10; Python 3 (standard library only); `curl`; the Azure CLI.
 

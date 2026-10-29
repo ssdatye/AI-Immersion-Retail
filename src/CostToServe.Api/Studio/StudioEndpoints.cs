@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Azure.Identity;
 using CostToServe.Agent.Decisions;
+using CostToServe.Agent.Evidence;
 using CostToServe.Agent.Security;
 using CostToServe.Core.Data;
 using CostToServe.Core.Engine;
@@ -36,7 +37,7 @@ public static class StudioEndpoints
     /// token and its app roles. Otherwise, in local development, the X-Demo-Persona header may
     /// identify an illustrative persona. With neither, every request is rejected.
     /// </summary>
-    public static void MapStudio(this WebApplication app, EntraOptions entra, bool devPersonasEnabled)
+    public static void MapStudio(this WebApplication app, EntraOptions entra, bool devPersonasEnabled, System.Text.Json.Nodes.JsonNode? evaluationSummary = null)
     {
         var authMode = entra.IsConfigured ? "entra" : devPersonasEnabled ? "devPersonas" : "none";
 
@@ -142,6 +143,9 @@ public static class StudioEndpoints
 
         api.MapGet("/results", (HttpContext http, StudioServices s) => ToResult(s.ToolsFor(Caller(http)).GetExecutionResults()));
 
+        api.MapGet("/trust", (HttpContext http, StudioServices s, TrustSpanStore spans, TrustOptions options) =>
+            Results.Json(TrustEndpoints.Build(Caller(http), s, spans, options, evaluationSummary), AIJsonUtilities.DefaultOptions));
+
         api.MapGet("/decisions", (StudioServices s) => s.DecisionLog.ReadAll()
             .OrderByDescending(d => d.Timestamp)
             .Select(d => new { Timestamp = d.Timestamp.ToString("yyyy-MM-ddTHH:mm:ssZ"), d.ActionId, d.Actor, Decision = d.Decision.ToString().ToLowerInvariant(), d.Reason, d.Setting, Region = d.EffectiveRegion }));
@@ -156,6 +160,13 @@ public static class StudioEndpoints
     }
 
     private static CallerContext Caller(HttpContext http) => (CallerContext)http.Items[CallerKey]!;
+
+    /// <summary>The user's question without the studio settings the browser may append as context.</summary>
+    public static string VisibleQuestion(string message)
+    {
+        var cut = message.IndexOf("\n\n[Studio settings for reference:", StringComparison.Ordinal);
+        return cut >= 0 ? message[..cut] : message;
+    }
 
     /// <summary>Maps tool error objects to HTTP status codes; successful results pass through unchanged.</summary>
     private static IResult ToResult(object toolResult)
@@ -217,6 +228,17 @@ public static class StudioEndpoints
 
         async Task ProduceAsync()
         {
+            var watch = Stopwatch.StartNew();
+            var answer = new System.Text.StringBuilder();
+            long? inputTokens = null, outputTokens = null;
+            void RecordFailure() => s.Trust.Add(new TrustTurn(
+                caller.Id, caller.DisplayName, DateTimeOffset.UtcNow, VisibleQuestion(message), [],
+                new AnswerEvidence([]), watch.ElapsedMilliseconds, inputTokens, outputTokens, traceId, Errored: true));
+            lock (conversation.TurnTools)
+            {
+                conversation.TurnTools.Clear();
+            }
+
             try
             {
                 channel.Writer.TryWrite(new("start", new { conversationId = conversation.Id }));
@@ -225,9 +247,40 @@ public static class StudioEndpoints
                 {
                     if (!string.IsNullOrEmpty(update.Text))
                     {
+                        answer.Append(update.Text);
                         channel.Writer.TryWrite(new("delta", new { text = update.Text }));
                     }
+
+                    foreach (var usage in update.Contents.OfType<UsageContent>())
+                    {
+                        inputTokens = (inputTokens ?? 0) + (usage.Details.InputTokenCount ?? 0);
+                        outputTokens = (outputTokens ?? 0) + (usage.Details.OutputTokenCount ?? 0);
+                    }
                 }
+
+                // Live evidence: every number in the answer is traced to a tool result, the question or the
+                // instructions. The same check as the offline evaluation; no model call.
+                TurnToolCall[] calls;
+                lock (conversation.TurnTools)
+                {
+                    calls = [.. conversation.TurnTools];
+                }
+
+                var evidence = NumberEvidence.Trace(answer.ToString(), calls.Select(c => (c.Name, c.Result)), message, conversation.Instructions);
+                channel.Writer.TryWrite(new("evidence", new
+                {
+                    quoted = evidence.Quoted,
+                    traced = evidence.Traced,
+                    unsupported = evidence.Unsupported,
+                    numbers = evidence.Numbers.Select(n => new { text = n.Text, source = n.Source }),
+                    tools = calls.Select(c => new { name = c.Name, outcome = c.Outcome, message = c.Message, decision = c.DecisionStatus }),
+                    durationMs = watch.ElapsedMilliseconds,
+                    traceId,
+                }));
+                s.Trust.Add(new TrustTurn(
+                    caller.Id, caller.DisplayName, DateTimeOffset.UtcNow, VisibleQuestion(message),
+                    calls.Select(c => (c.Name, c.Outcome, c.Message, c.DecisionStatus)).ToArray(),
+                    evidence, watch.ElapsedMilliseconds, inputTokens, outputTokens, traceId, Errored: false));
             }
             catch (OperationCanceledException)
             {
@@ -235,11 +288,13 @@ public static class StudioEndpoints
             }
             catch (AuthenticationFailedException)
             {
+                RecordFailure();
                 channel.Writer.TryWrite(new("error", new { message = "Could not get an Entra token for the model. Run 'az login'." }));
             }
             catch (ClientResultException ex)
             {
                 // The message is service-controlled; report only the status.
+                RecordFailure();
                 channel.Writer.TryWrite(new("error", new { message = $"The model request failed (HTTP {ex.Status})." }));
             }
             finally

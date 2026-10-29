@@ -4,7 +4,8 @@ import type { ApiAuth } from "../auth";
 import { COMMAND_HELP, mentionedActions, parseCommand } from "../commands";
 import { toPercent, usd } from "../format";
 import type { WaitingItem } from "../pending";
-import type { ConfirmationCard, Playbook } from "../types";
+import type { AnswerEvidence, ConfirmationCard, Playbook } from "../types";
+import { EvidenceReceipt } from "./EvidenceReceipt";
 import { when } from "./ActionsPanel";
 import { DecisionStrip, pastTense, submitDecision } from "./DecisionStrip";
 
@@ -24,6 +25,8 @@ interface Turn {
   traceId?: string;
   error?: string;
   streaming?: boolean;
+  /** Live evidence for agent answers (numbers traced to tool results). */
+  evidence?: AnswerEvidence;
 }
 
 interface Props {
@@ -37,9 +40,11 @@ interface Props {
   /** Region selected in Actions and decisions; used when a reply or command does not name one. */
   decisionRegion: string;
   onDecisionLogged: () => void;
+  /** Called when an answer's evidence arrives, so the Trust Center can refresh. */
+  onEvidence?: () => void;
 }
 
-export function ChatPanel({ auth, displayName, suggestions, studioContext, playbook, waiting, decisionRegion, onDecisionLogged }: Props) {
+export function ChatPanel({ auth, displayName, suggestions, studioContext, playbook, waiting, decisionRegion, onDecisionLogged, onEvidence }: Props) {
   const [turns, setTurns] = useState<Turn[]>([
     {
       id: 0,
@@ -149,6 +154,10 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
           case "confirmation_closed":
             update(agentId, (t) => ({ ...t, cards: t.cards.map((c) => (c.id === data.id && c.status === "pending" ? { ...c, status: "closed" } : c)) }));
             break;
+          case "evidence":
+            update(agentId, (t) => ({ ...t, evidence: data as unknown as AnswerEvidence }));
+            onEvidence?.();
+            break;
           case "error":
             update(agentId, (t) => ({ ...t, error: String(data.message) }));
             break;
@@ -254,7 +263,8 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
                 onDecided={onDecisionLogged}
               />
             )}
-            {t.traceId && <div className="trace">trace {t.traceId}</div>}
+            {t.evidence && !t.streaming && <EvidenceReceipt evidence={t.evidence} />}
+            {t.traceId && !t.evidence && <div className="trace">trace {t.traceId}</div>}
           </div>
         ))}
       </div>

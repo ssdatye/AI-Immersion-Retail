@@ -29,6 +29,9 @@ public sealed class CostToServeOptions
     /// <summary>Lever settings that model each playbook action. Relative paths resolve from the repository root.</summary>
     public string ActionConfigFile { get; init; } = "data/config/action-levers.csv";
 
+    /// <summary>Latest evaluation summary for the Trust Center, written by evals/report.py.</summary>
+    public string EvalSummaryFile { get; init; } = "docs/evals/summary.json";
+
     /// <summary>
     /// Accepts the X-Demo-Persona header (dana or luis) as the caller. Local development only,
     /// enabled in appsettings.Development.json; Entra sign-in replaces it.
@@ -64,7 +67,7 @@ public sealed class CostToServeOptions
         }
 
         var localSettings = repoRoot is null ? null : Path.Combine(repoRoot, "src", "CostToServe.Api", "appsettings.Local.json");
-        return new ResolvedPaths(Full(SeedDirectory), Full(LocalStateDirectory), localSettings, Full(ActionConfigFile));
+        return new ResolvedPaths(Full(SeedDirectory), Full(LocalStateDirectory), localSettings, Full(ActionConfigFile), Full(EvalSummaryFile));
     }
 
     private static string? FindRepositoryRoot(string start)
@@ -96,4 +99,5 @@ public sealed class CosmosOptions
     public string Database { get; init; } = "costtoserve";
 }
 
-public sealed record ResolvedPaths(string SeedDirectory, string LocalStateDirectory, string? LocalSettingsFile = null, string? ActionConfigFile = null);
+public sealed record ResolvedPaths(
+    string SeedDirectory, string LocalStateDirectory, string? LocalSettingsFile = null, string? ActionConfigFile = null, string? EvalSummaryFile = null);

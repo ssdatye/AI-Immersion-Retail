@@ -29,6 +29,10 @@ param regionalOpsRegions object
 
 param deployPrincipalId string
 
+@description('Trust Center links: Application Insights and Foundry evaluation project resource IDs (read at runtime, never committed).')
+param appInsightsId string
+param evalsProjectId string
+
 var websiteContributorRoleId = 'de139f84-1756-47ae-9be6-808fbbe84772'
 
 resource plan 'Microsoft.Web/serverfarms@2024-04-01' = {
@@ -69,6 +73,18 @@ var baseSettings = [
   {
     name: 'CostToServe__ActionConfigFile'
     value: 'config/action-levers.csv'
+  }
+  {
+    name: 'CostToServe__EvalSummaryFile'
+    value: 'trust/eval-summary.json'
+  }
+  {
+    name: 'Trust__AppInsightsResourceId'
+    value: appInsightsId
+  }
+  {
+    name: 'Trust__FoundryProjectResourceId'
+    value: evalsProjectId
   }
   {
     name: 'CostToServe__Sql__ConnectionString'

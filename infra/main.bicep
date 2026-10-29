@@ -188,6 +188,8 @@ module web 'modules/appservice.bicep' = if (deployPlatform) {
     entraClientId: entraClientId
     regionalOpsRegions: regionalOpsRegions
     deployPrincipalId: identities!.outputs.deployPrincipalId
+    appInsightsId: monitoring!.outputs.appInsightsId
+    evalsProjectId: foundry.outputs.evalsProjectId
   }
 }
 

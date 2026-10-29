@@ -206,3 +206,82 @@ export interface ExecutionResults {
   guardrailPassed?: boolean;
   method?: string;
 }
+
+/** Live evidence for one agent answer: each quoted number and the tool field (or other source) it came from. */
+export interface AnswerEvidence {
+  quoted: number;
+  traced: number;
+  unsupported: string[];
+  numbers: { text: string; source: string | null }[];
+  tools: { name: string; outcome: string; message?: string | null; decision?: string | null }[];
+  durationMs: number;
+  traceId?: string | null;
+}
+
+export interface TrustCheck {
+  label: string;
+  pass: number;
+  fail: number;
+  "n/a"?: number;
+  skipped?: number;
+}
+
+export interface EvaluationSummary {
+  runId: string;
+  createdUtc: string;
+  model: string;
+  seedVersion: string;
+  cases: number;
+  personas: Record<string, number>;
+  passedAllChecks: number;
+  checks: Record<string, TrustCheck>;
+  judges: Record<string, TrustCheck> | null;
+  expectedRefusals: number;
+  numbersQuoted: number;
+  numbersUnsupported: number;
+  decisionCases: number;
+  engineParityCases: number;
+  foundry: { project: string; judgeModel: string; status: string } | null;
+}
+
+export interface TrustTurn {
+  at: string;
+  who: string;
+  question: string;
+  tools: { name: string; outcome: string; message?: string | null; decision?: string | null }[];
+  quoted: number;
+  traced: number;
+  unsupported: string[];
+  durationMs: number;
+  traceId?: string | null;
+  errored: boolean;
+}
+
+export interface TraceSpan {
+  kind: "request" | "agent" | "model" | "tool" | "person" | "data";
+  label: string;
+  startMs: number;
+  durationMs: number;
+  error: boolean;
+}
+
+export interface TrustData {
+  evaluation: EvaluationSummary | null;
+  session: {
+    since: string;
+    answers: number;
+    errors: number;
+    numbersQuoted: number;
+    numbersTraced: number;
+    numbersToReview: number;
+    refusedByPolicy: number;
+    decisionsByPeople: number;
+    answersTraced: number;
+    medianMs: number | null;
+    tokens: number;
+  };
+  turns: TrustTurn[];
+  lastTrace: { traceId: string; question: string; spans: TraceSpan[] } | null;
+  links: { foundryEvaluations?: string | null; appInsightsSearch?: string | null; report?: string | null };
+  controls: { model: string; modelViaGateway: boolean; contentFilter: string; dataMode: string };
+}

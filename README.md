@@ -15,8 +15,9 @@ Decisions are in [docs/adr/000-reuse-assessment.md](docs/adr/000-reuse-assessmen
 [docs/adr/001-agent-and-model-access.md](docs/adr/001-agent-and-model-access.md),
 [docs/adr/002-what-if-studio.md](docs/adr/002-what-if-studio.md),
 [docs/adr/003-entra-sign-in.md](docs/adr/003-entra-sign-in.md) and
-[docs/adr/004-hosted-platform.md](docs/adr/004-hosted-platform.md) and
-[docs/adr/005-agent-evaluations.md](docs/adr/005-agent-evaluations.md).
+[docs/adr/004-hosted-platform.md](docs/adr/004-hosted-platform.md),
+[docs/adr/005-agent-evaluations.md](docs/adr/005-agent-evaluations.md) and
+[docs/adr/006-trust-center.md](docs/adr/006-trust-center.md).
 
 The architecture as built, with technology choices, Dana and Luis sequence diagrams, cost and
 the production view, is in
@@ -175,25 +176,37 @@ curl -X POST http://localhost:5080/api/scenario -H 'X-Demo-Persona: dana' -H 'co
   -d '{"dieselShift":0.5,"durationWeeks":13,"actionIds":"A1,A2"}'
 ```
 
-| Endpoint                                       | Purpose                                                                   |
-|------------------------------------------------|---------------------------------------------------------------------------|
-| `GET /api/health`                              | Data mode, seed version, chat configured, sign-in mode                    |
-| `GET /api/auth-config`                         | Sign-in mode and public MSAL settings for the browser                     |
-| `GET /api/me`, `GET /api/dashboard`            | Caller, scope, fuel market, cost per order, presets                       |
-| `POST /api/scenario`                           | Diesel change with levers or `actionIds` over 13 weeks, plus guardrail    |
-| `POST /api/guardrail`                          | Guardrail check for levers or actions                                     |
-| `GET /api/cost-per-order`, `GET /api/variance` | Actual cost per order; week-over-week drivers                             |
-| `GET /api/playbook`                            | Approved actions with modeled weekly savings and latest decision          |
-| `GET /api/results`                             | Modeled pilot-vs-control results of executed actions                      |
-| `GET /api/decisions`, `POST /api/decisions`    | Decision log; propose, approve, reject or execute                         |
-| `POST /api/chat`                               | Agent chat as server-sent events: `delta`, `tool`, `confirmation`, `done` |
-| `POST /api/confirmations/{id}`                 | Confirm or cancel a decision card; only its owner can                     |
+| Endpoint                                       | Purpose                                                                               |
+|------------------------------------------------|---------------------------------------------------------------------------------------|
+| `GET /api/health`                              | Data mode, seed version, chat configured, sign-in mode                                |
+| `GET /api/auth-config`                         | Sign-in mode and public MSAL settings for the browser                                 |
+| `GET /api/me`, `GET /api/dashboard`            | Caller, scope, fuel market, cost per order, presets                                   |
+| `POST /api/scenario`                           | Diesel change with levers or `actionIds` over 13 weeks, plus guardrail                |
+| `POST /api/guardrail`                          | Guardrail check for levers or actions                                                 |
+| `GET /api/cost-per-order`, `GET /api/variance` | Actual cost per order; week-over-week drivers                                         |
+| `GET /api/playbook`                            | Approved actions with modeled weekly savings and latest decision                      |
+| `GET /api/results`                             | Modeled pilot-vs-control results of executed actions                                  |
+| `GET /api/decisions`, `POST /api/decisions`    | Decision log; propose, approve, reject or execute                                     |
+| `POST /api/chat`                               | Agent chat as server-sent events: `delta`, `tool`, `confirmation`, `evidence`, `done` |
+| `GET /api/trust`                               | Trust Center: last evaluation, live evidence, latest trace, portal links              |
+| `POST /api/confirmations/{id}`                 | Confirm or cancel a decision card; only its owner can                                 |
 
 Scope is enforced on the server: Luis gets 403 for other regions. Invalid input returns 400.
 
 Levers and ranges match the reference sliders: `batch` 0-0.6, `closer` 0-0.4, `split` 0-0.6,
 `pickup` 0-0.1, `fee` -1 to 3, `basket` and `cap` true or false. Diesel shift is -0.5 to 1.0
 USD per gallon; duration is 1-13 weeks. Out-of-range input returns HTTP 400.
+
+### Trust Center
+
+The **🛡 Trust Center** tab shows why the answers can be trusted: the last evaluation run
+(deterministic checks and Foundry judges), this session's live evidence for your own answers,
+how the latest answer was produced (request, agent, model and tool spans), and the controls
+in force. Under every agent answer, a receipt traces each quoted number to the tool field it
+came from, or shows that a request was refused by policy or logged after you confirmed.
+
+The evaluation figures come from `docs/evals/summary.json`. Run `./scripts/run-evals.sh`
+and redeploy to refresh them. See [ADR 006](docs/adr/006-trust-center.md).
 
 ## Test
 

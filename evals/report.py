@@ -54,6 +54,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("run_folder")
     parser.add_argument("--out", default=str(REPO / "docs" / "evals" / "report.md"))
+    parser.add_argument("--summary", default=str(REPO / "docs" / "evals" / "summary.json"),
+                        help="Summary for the studio's Trust Center (no resource IDs).")
     args = parser.parse_args()
     folder = Path(args.run_folder).resolve()
     rows = [json.loads(line) for line in (folder / "results.jsonl").read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -199,7 +201,43 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text("\n".join(lines), encoding="utf-8")
     print(f"Wrote {out}")
+    write_summary(Path(args.summary), rows, run, items, foundry)
     return 0
+
+
+def write_summary(path: Path, rows: list[dict], run: dict, items: dict, foundry: dict | None) -> None:
+    """A compact summary the studio's Trust Center shows. Counts only: no answers, prompts or IDs."""
+    fixture = json.loads((REPO / "tests" / "CostToServe.Core.Tests" / "Fixtures" / "html-engine-golden.json").read_text())
+    parity = sum(len(v) for k, v in fixture.items() if k.endswith("Cases"))
+    checks = {key: {"label": label, **{k: sum(r["checks"][key]["result"] == k for r in rows) for k in ("pass", "fail", "n/a")}}
+              for key, label in CHECKS.items()}
+    judges = None
+    if items:
+        judges = {}
+        for key, label in JUDGES.items():
+            c = Counter(judge_marks(items.get(r["id"])).get(key, ("skipped", {}))[0] for r in rows)
+            judges[key] = {"label": label, "pass": c["pass"], "fail": c["fail"], "skipped": c["skipped"]}
+    refusals = sum(1 for r in rows if judge_marks(items.get(r["id"])).get("tool_call_accuracy", ("", {}))[0] == "fail" and expected_refusal(r))
+    summary = {
+        "runId": run["run_id"],
+        "createdUtc": run["created_utc"],
+        "model": run["model"],
+        "seedVersion": run["seed_version"],
+        "cases": len(rows),
+        "personas": dict(Counter(r["persona"] for r in rows)),
+        "passedAllChecks": sum(r["result"] == "pass" for r in rows),
+        "checks": checks,
+        "judges": judges,
+        "expectedRefusals": refusals,
+        "numbersQuoted": sum(r["checks"]["grounded_numbers"]["quoted_count"] for r in rows),
+        "numbersUnsupported": sum(len(r["checks"]["grounded_numbers"]["unsupported"]) for r in rows),
+        "decisionCases": sum(r["checks"]["decision"]["result"] != "n/a" for r in rows),
+        "engineParityCases": parity,
+        "foundry": {"project": "proj-evals", "judgeModel": foundry["model"], "status": foundry["status"]} if foundry else None,
+    }
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    print(f"Wrote {path}")
 
 
 if __name__ == "__main__":

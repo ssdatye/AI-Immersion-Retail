@@ -1,0 +1,74 @@
+{
+  "runId": "20261029-163101",
+  "createdUtc": "2026-10-29T16:33:18.1088320Z",
+  "model": "gpt-4.1-mini",
+  "seedVersion": "33d443c5d89d",
+  "cases": 27,
+  "personas": {
+    "luis": 11,
+    "dana": 16
+  },
+  "passedAllChecks": 27,
+  "checks": {
+    "tool_selection": {
+      "label": "Tool selection",
+      "pass": 20,
+      "fail": 0,
+      "n/a": 7
+    },
+    "numeric_accuracy": {
+      "label": "Numeric accuracy",
+      "pass": 15,
+      "fail": 0,
+      "n/a": 12
+    },
+    "grounded_numbers": {
+      "label": "Numbers from tools",
+      "pass": 27,
+      "fail": 0,
+      "n/a": 0
+    },
+    "decision": {
+      "label": "Decision rules",
+      "pass": 11,
+      "fail": 0,
+      "n/a": 16
+    }
+  },
+  "judges": {
+    "task_adherence": {
+      "label": "Task adherence",
+      "pass": 27,
+      "fail": 0,
+      "skipped": 0
+    },
+    "tool_call_accuracy": {
+      "label": "Tool-call accuracy",
+      "pass": 19,
+      "fail": 6,
+      "skipped": 2
+    },
+    "intent_resolution": {
+      "label": "Intent resolution",
+      "pass": 27,
+      "fail": 0,
+      "skipped": 0
+    },
+    "groundedness": {
+      "label": "Groundedness",
+      "pass": 23,
+      "fail": 0,
+      "skipped": 4
+    }
+  },
+  "expectedRefusals": 6,
+  "numbersQuoted": 97,
+  "numbersUnsupported": 0,
+  "decisionCases": 11,
+  "engineParityCases": 476,
+  "foundry": {
+    "project": "proj-evals",
+    "judgeModel": "gpt-4.1-mini",
+    "status": "completed"
+  }
+}

@@ -102,3 +102,4 @@ output accountName string = account.name
 output evalsProjectEndpoint string = deployEvalsProject ? 'https://${account.properties.customSubDomainName}.services.ai.azure.com/api/projects/proj-evals' : ''
 output openAIEndpoint string = 'https://${account.properties.customSubDomainName}.openai.azure.com/openai/v1/'
 output deploymentName string = deployment.name
+output evalsProjectId string = deployEvalsProject ? '${account.id}/projects/proj-evals' : ''

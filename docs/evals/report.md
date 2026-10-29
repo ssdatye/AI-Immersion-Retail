@@ -125,4 +125,4 @@ Question: Execute A2 in the Southeast.
 * A quoted number matches when it equals the engine's value at the precision written (one unit of the last digit), so 28,186,400 matches "$28.2M".
 * The Foundry step submits each turn (system prompt, question, tool calls, tool results and answer, plus tool definitions) to the isolated `proj-evals` project, which has no connections. The deterministic results are carried along as string checks so all scores appear in the Foundry portal.
 
-Generated 2026-10-29 16:37 UTC.
+Generated 2026-10-29 18:23 UTC.
