@@ -13,8 +13,14 @@ C# port of the reference demo in
 [docs/reference/walmart-v3-cost-to-serve-demo.html](docs/reference/walmart-v3-cost-to-serve-demo.html).
 Decisions are in [docs/adr/000-reuse-assessment.md](docs/adr/000-reuse-assessment.md),
 [docs/adr/001-agent-and-model-access.md](docs/adr/001-agent-and-model-access.md),
-[docs/adr/002-what-if-studio.md](docs/adr/002-what-if-studio.md) and
-[docs/adr/003-entra-sign-in.md](docs/adr/003-entra-sign-in.md).
+[docs/adr/002-what-if-studio.md](docs/adr/002-what-if-studio.md),
+[docs/adr/003-entra-sign-in.md](docs/adr/003-entra-sign-in.md) and
+[docs/adr/004-hosted-platform.md](docs/adr/004-hosted-platform.md).
+
+The architecture as built, with technology choices, Dana and Luis sequence diagrams, cost and
+the production view, is in
+[docs/architecture/cost-to-serve-architecture.html](docs/architecture/cost-to-serve-architecture.html)
+(version 2.0). Open it in a browser; the diagrams render with Mermaid from a CDN.
 
 | Increment | Scope                                                    | Status  |
 |-----------|----------------------------------------------------------|---------|
@@ -23,7 +29,7 @@ Decisions are in [docs/adr/000-reuse-assessment.md](docs/adr/000-reuse-assessmen
 | 2         | Agent Framework agent with cost tools, tracing           | Done    |
 | 3         | What-If Studio front end                                 | Done    |
 | 4         | Entra sign-in, app roles, Dana and Luis views            | Done    |
-| 5         | Azure resources via Bicep in a new resource group        | Planned |
+| 5         | Azure resources via Bicep in a new resource group        | Done    |
 | 6         | Evaluations                                              | Planned |
 | 7         | Demo hardening and run-book                              | Planned |
 
@@ -44,6 +50,7 @@ Decisions are in [docs/adr/000-reuse-assessment.md](docs/adr/000-reuse-assessmen
 | `data/config/action-levers.csv`     | Lever settings for playbook actions A1-A6 (editable, with sources)                                                        |
 | `data/local`                        | Mutable local demo state (git-ignored, recreated by reset)                                                                |
 | `docs/reference`                    | Reference demo and architecture page, with hashes                                                                         |
+| `docs/architecture`                 | Architecture as built (v2.0, supersedes the reference architecture page)                                                  |
 | `tools/extract-html-fixture.mjs`    | Regenerates the golden parity fixture from the reference HTML                                                             |
 | `scripts/reset-demo.sh`             | Resets the demo to its seed baseline                                                                                      |
 | `scripts/deploy-foundry.sh`         | Deploys the Foundry model (billable) and writes local settings                                                            |
