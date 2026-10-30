@@ -99,8 +99,9 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
   and sliders, every lever, and outcome details. Outcomes recompute on the server with the
   same engine and scope rules as the agent, with no model call. Changes you make there are
   listed as "not shared with the agent" until you click **Ask the agent about these
-  changes** (in the pinned bar or the panel's footer) or ask any question with "Share the
-  model settings with the agent" on. **Undo** reverts them.
+  changes** (in the panel's footer, or in the pinned bar while the panel is closed) or ask
+  any question with "Share the model settings with the agent" on. **Undo** reverts them. The
+  status areas keep a fixed size, so changing a setting never moves the page.
 * Open **Decisions** to approve, reject, propose or execute from the actions table. Buttons
   follow the role.
 * Decisions apply to one region at a time. Luis proposes and executes for the Southeast only.
