@@ -10,7 +10,8 @@ import { LeversPanel } from "./components/LeversPanel";
 import { Outcomes } from "./components/Outcomes";
 import { PackageForm } from "./components/PackageForm";
 import { OutcomesBar, type DrawerView } from "./components/OutcomesBar";
-import { changesQuestion, modelChanges, settingsSummary, type ModelSettings } from "./modelSync";
+import { changesQuestion, leverList, modelChanges, settingsSummary, type ModelSettings } from "./modelSync";
+import { anyLever, beyondPlan, combineLevers, sameLevers } from "./levers";
 import { NO_LEVERS, type Dashboard, type DecisionRecord, type Levers, type Persona, type Playbook, type ScenarioResult, type ExecutionResults } from "./types";
 
 /** Chooses the sign-in mode the API reports: Entra (MSAL) or local dev personas. */
@@ -180,6 +181,14 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
   const planKey = plan.map((p) => `${p.region}:${p.actionId}:${p.settingText}`).join(",");
   const waiting = useMemo(() => (dashboard && playbook ? waitingFor(dashboard.caller, playbook.actions) : []), [dashboard, playbook]);
   const applyPlan = includePlan && plan.length > 0;
+  // The headline outcomes are the approved plan, the same for everyone; levers beyond it are this person's what-ifs.
+  const floors = useMemo(
+    () => (applyPlan ? modeledRegions.map((r) => plan.filter((p) => p.region === r).reduce((acc, p) => combineLevers(acc, p.levers), NO_LEVERS)) : []),
+    [applyPlan, modeledRegions, plan],
+  );
+  const whatIfs = beyondPlan(levers, floors);
+  const hasWhatIfs = anyLever(whatIfs);
+  const [planScenario, setPlanScenario] = useState<ScenarioResult | null>(null);
   const showWaiting = (w: WaitingItem) => {
     setTab("studio");
     setDrawer("decisions");
@@ -217,6 +226,47 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
       controller.abort();
     };
   }, [auth, dashboard, dieselShift, duration, levers, region, applyPlan, planKey]);
+
+  // Headline: the approved plan without what-ifs. With no what-ifs it is the scenario above; otherwise one more call.
+  useEffect(() => {
+    if (!hasWhatIfs && scenario) {
+      setPlanScenario(scenario);
+    }
+  }, [hasWhatIfs, scenario]);
+
+  useEffect(() => {
+    if (!dashboard || !hasWhatIfs) {
+      return;
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      api<ScenarioResult>(auth, "/api/scenario", {
+        method: "POST",
+        body: { dieselShift, durationWeeks: duration, levers: NO_LEVERS, actionIds: null, applyPlan, region: region || null },
+        signal: controller.signal,
+      })
+        .then(setPlanScenario)
+        .catch(() => {
+          // The what-if result still shows; the headline keeps its last value.
+        });
+    }, 200);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [auth, dashboard, dieselShift, duration, region, applyPlan, planKey, hasWhatIfs]);
+
+  // A what-if is dropped once the approved plan covers it, for example when Finance approves the 30% regional ops modeled.
+  const floorsRef = useRef(floors);
+  floorsRef.current = floors;
+  useEffect(() => {
+    const strip = (l: Levers) => {
+      const kept = beyondPlan(l, floorsRef.current);
+      return sameLevers(kept, l) ? l : kept;
+    };
+    setLevers(strip);
+    setSynced((s) => (strip(s.levers) === s.levers ? s : { ...s, levers: strip(s.levers) }));
+  }, [planKey, applyPlan]);
 
   const studioContext = useMemo(() => {
     const active = Object.entries(levers)
@@ -362,7 +412,9 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
           <div className="studio" hidden={tab !== "studio"} role="tabpanel" id="panel-studio" aria-labelledby="tab-studio">
             <OutcomesBar
               ref={barRef}
-              result={scenario}
+              result={hasWhatIfs ? (planScenario ?? scenario) : scenario}
+              whatIf={hasWhatIfs ? { result: scenario, levers: leverList(whatIfs) } : null}
+              onClearWhatIfs={() => setLevers(NO_LEVERS)}
               loading={scenarioLoading}
               error={scenarioError}
               summary={settingsSummary(current, plan.length)}

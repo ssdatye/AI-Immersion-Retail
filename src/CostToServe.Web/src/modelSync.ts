@@ -114,8 +114,8 @@ export function changesQuestion(changes: ModelChange[]): string {
 }
 
 /** One line describing the current model settings, for the outcomes bar. */
+/** The shared basis of the headline outcomes: the diesel scenario and whether the approved plan applies. What-ifs are shown apart. */
 export function settingsSummary(s: ModelSettings, planCount: number): string {
-  const extras = LEVERS.filter((l) => !isOff(s.levers[l.key])).map((l) => `${l.label} ${l.show(s.levers[l.key])}`);
   const plan = s.includePlan && planCount > 0 ? "approved plan" : "no plan";
-  return [`Diesel ${diesel(s.dieselShift)} × ${s.duration} weeks`, plan, ...extras].join(" · ");
+  return [`Diesel ${diesel(s.dieselShift)} × ${s.duration} weeks`, plan].join(" · ");
 }

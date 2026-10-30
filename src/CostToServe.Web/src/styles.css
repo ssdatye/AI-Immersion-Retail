@@ -1608,6 +1608,43 @@ input[type="range"].has-floor {
   font-variant-numeric: tabular-nums;
 }
 
+/* This person's what-ifs, under the shared approved-plan value. */
+.okpi .okpi-whatif {
+  font-size: 11px;
+  color: #92400e;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.okpi .okpi-whatif.up-bad {
+  color: var(--red);
+}
+
+.obar-whatifs {
+  display: flex;
+  gap: 6px;
+  align-items: flex-end;
+  margin: 2px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.obar-whatifs span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-width: 0;
+}
+
+.obar-whatifs button {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
 .okpi .guard {
   font-size: 12px;
   font-weight: 700;

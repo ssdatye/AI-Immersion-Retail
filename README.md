@@ -90,8 +90,12 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
 * Sign in as Dana (network-wide, approves) or Luis (Southeast only, proposes and executes).
   Before Entra is set up, pick a local dev persona at the top right instead.
 * The conversation with the agent is the main view. The quarter's outcomes (fuel shock,
-  offset, net operating income, Express within 3 hours) are pinned above it, for the
-  current model settings.
+  offset, net operating income, Express within 3 hours) are pinned above it. The headline is
+  the approved plan, so Dana and Luis see the same numbers for the same region and diesel
+  scenario. Levers you set beyond the plan are your what-ifs: they are listed under the
+  title, each card adds "what-ifs: …" with their effect, and **Clear** removes them. A
+  what-if disappears once the approved plan covers it, for example when Finance approves
+  the 30% you modeled.
 * Ask the agent questions. Tool calls appear as chips. Under each answer, "✓ Proof"
   expands to the tool calls in order and the field each number came from. When the agent
   asks to log a decision, a card appears; nothing is logged until you click Confirm.

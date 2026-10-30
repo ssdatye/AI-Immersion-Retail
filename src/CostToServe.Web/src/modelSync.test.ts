@@ -28,8 +28,6 @@ describe("modelChanges", () => {
   it("builds the question and the summary line", () => {
     const changes = modelChanges(base, { ...base, dieselShift: 0.75 });
     expect(changesQuestion(changes)).toContain("Diesel change +$0.50/gal → +$0.75/gal");
-    expect(settingsSummary({ ...base, levers: { ...NO_LEVERS, fee: 1 } }, 2)).toBe(
-      "Diesel +$0.50/gal × 13 weeks · approved plan · Express fee +$1.00",
-    );
+    expect(settingsSummary({ ...base, levers: { ...NO_LEVERS, fee: 1 } }, 2)).toBe("Diesel +$0.50/gal × 13 weeks · approved plan");
   });
 });
