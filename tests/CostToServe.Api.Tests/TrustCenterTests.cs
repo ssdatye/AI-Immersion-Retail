@@ -53,6 +53,33 @@ public sealed class TrustCenterTests : IClassFixture<StudioFactory>
     }
 
     [Fact]
+    public async Task Trust_prices_tokens_and_projects_a_monthly_cost_from_the_evaluation_run()
+    {
+        var trust = await _factory.As("dana").GetFromJsonAsync<JsonElement>("/api/trust");
+
+        var pricing = trust.GetProperty("pricing");
+        Assert.Equal(0.40, pricing.GetProperty("inputPerMillionUsd").GetDouble());
+        Assert.Equal(1.60, pricing.GetProperty("outputPerMillionUsd").GetDouble());
+        var tokens = trust.GetProperty("evaluation").GetProperty("tokens");
+        var expected = new TokenPricing().Cost(tokens.GetProperty("input").GetInt64(), tokens.GetProperty("cachedInput").GetInt64(), tokens.GetProperty("output").GetInt64());
+        Assert.Equal(expected, pricing.GetProperty("evaluationCostUsd").GetDouble(), 9);
+        var projection = pricing.GetProperty("projection");
+        var perAnswer = expected / trust.GetProperty("evaluation").GetProperty("cases").GetInt32();
+        Assert.Equal(perAnswer * 1000 * 30, projection.GetProperty("monthlyUsd").GetDouble(), 6);
+        Assert.Equal(0, trust.GetProperty("session").GetProperty("costUsd").GetDouble());
+    }
+
+    [Fact]
+    public void Cached_input_is_billed_at_the_cached_rate()
+    {
+        var pricing = new TokenPricing();
+
+        Assert.Equal(0.0026, Math.Round(pricing.Cost(6_400, 0, 25), 6));
+        Assert.Equal((1_000 * 0.40 + 1_000 * 0.10 + 100 * 1.60) / 1_000_000, pricing.Cost(2_000, 1_000, 100), 12);
+        Assert.Equal(0, pricing.Cost(null, null, null));
+    }
+
+    [Fact]
     public async Task Architecture_document_is_served_without_sign_in()
     {
         var response = await _factory.CreateClient().GetAsync("/architecture");

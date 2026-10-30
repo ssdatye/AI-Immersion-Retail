@@ -232,6 +232,10 @@ export interface AnswerEvidence {
   tools: { name: string; outcome: string; message?: string | null; decision?: string | null }[];
   durationMs: number;
   traceId?: string | null;
+  /** Model tokens for this answer and their list-price cost; tools use none. */
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  costUsd?: number | null;
 }
 
 export interface TrustCheck {
@@ -251,6 +255,8 @@ export interface EvaluationSummary {
   seedVersion: string;
   cases: number;
   personas: Record<string, number>;
+  /** Agent tokens for the run (judges not counted). */
+  tokens?: { input: number; cachedInput: number; output: number } | null;
   passedAllChecks: number;
   checks: Record<string, TrustCheck>;
   judges: Record<string, TrustCheck> | null;
@@ -293,6 +299,9 @@ export interface TrustTurn {
   traced: number;
   unsupported: string[];
   durationMs: number;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  costUsd?: number | null;
   traceId?: string | null;
   errored: boolean;
 }
@@ -303,6 +312,23 @@ export interface TraceSpan {
   startMs: number;
   durationMs: number;
   error: boolean;
+  /** Model calls only; tools report 0 cost and no tokens. */
+  inputTokens?: number | null;
+  cachedInputTokens?: number | null;
+  outputTokens?: number | null;
+  costUsd?: number | null;
+}
+
+/** Token prices used for the cost figures, and the monthly projection. */
+export interface TokenPricing {
+  model: string;
+  inputPerMillionUsd: number;
+  cachedInputPerMillionUsd: number;
+  outputPerMillionUsd: number;
+  source: string;
+  asOf: string;
+  evaluationCostUsd?: number | null;
+  projection?: { answersPerDay: number; days: number; perAnswerUsd: number; monthlyUsd: number; basis: string } | null;
 }
 
 export interface TrustData {
@@ -319,11 +345,25 @@ export interface TrustData {
     answersTraced: number;
     medianMs: number | null;
     tokens: number;
+    inputTokens?: number;
+    cachedInputTokens?: number;
+    outputTokens?: number;
+    costUsd?: number;
+    costPerAnswerUsd?: number | null;
     toolCalls: number;
     allUsers: { users: number; answers: number; numbersQuoted: number; numbersTraced: number; refusedByPolicy: number };
   };
   turns: TrustTurn[];
-  lastTrace: { traceId: string; question: string; spans: TraceSpan[] } | null;
+  lastTrace: {
+    traceId: string;
+    question: string;
+    spans: TraceSpan[];
+    inputTokens?: number | null;
+    cachedInputTokens?: number | null;
+    outputTokens?: number | null;
+    costUsd?: number | null;
+  } | null;
+  pricing?: TokenPricing | null;
   links: {
     foundryEvaluations?: string | null;
     foundryRun?: string | null;

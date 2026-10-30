@@ -244,6 +244,11 @@ The **🛡 Trust Center** tab shows why the answers can be trusted, top to botto
 * **Live since the demo reset:** your answers' evidence, totals for everyone, and how the latest
   answer was produced: the model, tool and other steps, plus "Other" for the rest of the
   request, which add up to the total. "Pause live updates" stops the 5-second refresh.
+* **Model tokens and cost:** each model call's input and output tokens and cost in the trace
+  (tools use none), your session's total and cost per answer, the evaluation run's cost, and a
+  projection (1,000 answers a day is about $90 a month). Prices are the Azure list price for
+  gpt-4.1-mini Global Standard in East US 2, with cached input at the cached rate; set
+  `Trust:Pricing` to use another rate. Each answer's receipt also shows its tokens and cost.
 * **Controls in force**, and **assumptions and limits** with how each is validated.
 
 Under every agent answer, a receipt traces each quoted number to the tool field it came from, or

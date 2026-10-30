@@ -236,7 +236,8 @@ public static class StudioEndpoints
         {
             var watch = Stopwatch.StartNew();
             var answer = new System.Text.StringBuilder();
-            long? inputTokens = null, outputTokens = null;
+            long? inputTokens = null, outputTokens = null, cachedTokens = null;
+            var pricing = http.RequestServices.GetRequiredService<TrustOptions>().Pricing;
             void RecordFailure() => s.Trust.Add(new TrustTurn(
                 caller.Id, caller.DisplayName, DateTimeOffset.UtcNow, VisibleQuestion(message), [],
                 new AnswerEvidence([]), watch.ElapsedMilliseconds, inputTokens, outputTokens, traceId, Errored: true));
@@ -261,6 +262,7 @@ public static class StudioEndpoints
                     {
                         inputTokens = (inputTokens ?? 0) + (usage.Details.InputTokenCount ?? 0);
                         outputTokens = (outputTokens ?? 0) + (usage.Details.OutputTokenCount ?? 0);
+                        cachedTokens = (cachedTokens ?? 0) + (usage.Details.CachedInputTokenCount ?? 0);
                     }
                 }
 
@@ -282,11 +284,14 @@ public static class StudioEndpoints
                     tools = calls.Select(c => new { name = c.Name, outcome = c.Outcome, message = c.Message, decision = c.DecisionStatus }),
                     durationMs = watch.ElapsedMilliseconds,
                     traceId,
+                    inputTokens,
+                    outputTokens,
+                    costUsd = inputTokens is null ? (double?)null : pricing.Cost(inputTokens, cachedTokens, outputTokens),
                 }));
                 s.Trust.Add(new TrustTurn(
                     caller.Id, caller.DisplayName, DateTimeOffset.UtcNow, VisibleQuestion(message),
                     calls.Select(c => (c.Name, c.Outcome, c.Message, c.DecisionStatus)).ToArray(),
-                    evidence, watch.ElapsedMilliseconds, inputTokens, outputTokens, traceId, Errored: false));
+                    evidence, watch.ElapsedMilliseconds, inputTokens, outputTokens, traceId, Errored: false, cachedTokens));
             }
             catch (OperationCanceledException)
             {

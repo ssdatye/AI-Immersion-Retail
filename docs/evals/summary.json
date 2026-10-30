@@ -8,6 +8,11 @@
     "luis": 16,
     "dana": 22
   },
+  "tokens": {
+    "input": 268059,
+    "cachedInput": 0,
+    "output": 4091
+  },
   "passedAllChecks": 38,
   "checks": {
     "tool_selection": {

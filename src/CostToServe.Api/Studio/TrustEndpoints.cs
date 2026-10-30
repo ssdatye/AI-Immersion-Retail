@@ -17,6 +17,9 @@ public sealed class TrustOptions
     /// <summary>Public link to the evaluation report.</summary>
     public string? ReportUrl { get; init; }
 
+    /// <summary>Token prices used to show what each model call and answer cost (list price unless configured).</summary>
+    public TokenPricing Pricing { get; init; } = new();
+
     public string? FoundryEvaluationsUrl()
     {
         // /subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{account}/projects/{project}
@@ -40,8 +43,39 @@ public sealed class TrustOptions
         string.IsNullOrWhiteSpace(AppInsightsResourceId) ? null : $"https://portal.azure.com/#resource{AppInsightsResourceId}/searchV1";
 }
 
+/// <summary>
+/// Token prices for the model deployment, in USD per million tokens. Defaults are the Azure list price for
+/// gpt-4.1-mini Global Standard in East US 2 (Azure Retail Prices API, October 30, 2026); override in Trust:Pricing.
+/// </summary>
+public sealed class TokenPricing
+{
+    public string Model { get; init; } = "gpt-4.1-mini";
+
+    public double InputPerMillionUsd { get; init; } = 0.40;
+
+    public double CachedInputPerMillionUsd { get; init; } = 0.10;
+
+    public double OutputPerMillionUsd { get; init; } = 1.60;
+
+    public string Source { get; init; } = "Azure list price (Retail Prices API): gpt-4.1-mini Global Standard, East US 2";
+
+    public string AsOf { get; init; } = "2026-10-30";
+
+    /// <summary>Daily answer volume for the monthly projection.</summary>
+    public int ProjectionAnswersPerDay { get; init; } = 1000;
+
+    /// <summary>Cost of one call or answer. Cached input tokens are part of the input count and billed at the cached rate.</summary>
+    public double Cost(long? input, long? cachedInput, long? output)
+    {
+        var cached = Math.Min(cachedInput ?? 0, input ?? 0);
+        return (((input ?? 0) - cached) * InputPerMillionUsd + cached * CachedInputPerMillionUsd + (output ?? 0) * OutputPerMillionUsd) / 1_000_000;
+    }
+}
+
 public static class TrustEndpoints
 {
+    private const int ProjectionDays = 30;
+
     /// <summary>
     /// GET /api/trust: the latest evaluation summary, this session's live evidence for the caller's own
     /// answers, the timeline of the latest traced answer, and links to Foundry and Application Insights.
@@ -57,6 +91,17 @@ public static class TrustEndpoints
         var latest = turns.FirstOrDefault(t => t.TraceId is not null && spans.Get(t.TraceId).Count > 0);
         var everyone = s.Trust.All.Where(t => !t.Errored).ToArray();
         var foundryRun = evaluation?["foundry"];
+        var pricing = options.Pricing;
+        double TurnCost(TrustTurn t) => pricing.Cost(t.InputTokens, t.CachedInputTokens, t.OutputTokens);
+        var sessionCost = answered.Sum(TurnCost);
+
+        // The evaluation run's agent tokens give a stable average cost per answer for the projection.
+        var evalTokens = evaluation?["tokens"];
+        var evalAnswers = (int?)evaluation?["cases"] ?? 0;
+        var evalCost = evalTokens is null ? (double?)null
+            : pricing.Cost((long?)evalTokens["input"], (long?)evalTokens["cachedInput"], (long?)evalTokens["output"]);
+        var perAnswer = evalCost is { } ec && evalAnswers > 0 ? ec / evalAnswers
+            : answered.Length > 0 ? sessionCost / answered.Length : (double?)null;
 
         return new
         {
@@ -74,6 +119,11 @@ public static class TrustEndpoints
                 AnswersTraced = answered.Count(t => t.TraceId is not null),
                 MedianMs = durations.Length == 0 ? (long?)null : (durations[(durations.Length - 1) / 2] + durations[durations.Length / 2]) / 2,
                 Tokens = answered.Sum(t => (t.InputTokens ?? 0) + (t.OutputTokens ?? 0)),
+                InputTokens = answered.Sum(t => t.InputTokens ?? 0),
+                CachedInputTokens = answered.Sum(t => t.CachedInputTokens ?? 0),
+                OutputTokens = answered.Sum(t => t.OutputTokens ?? 0),
+                CostUsd = sessionCost,
+                CostPerAnswerUsd = answered.Length == 0 ? (double?)null : sessionCost / answered.Length,
                 ToolCalls = answered.Sum(t => t.Tools.Count),
                 // Every signed-in user since the reset: counts only, no questions or answers.
                 AllUsers = new
@@ -95,10 +145,53 @@ public static class TrustEndpoints
                 t.Evidence.Traced,
                 t.Evidence.Unsupported,
                 t.DurationMs,
+                t.InputTokens,
+                t.OutputTokens,
+                CostUsd = t.Errored ? (double?)null : TurnCost(t),
                 t.TraceId,
                 t.Errored,
             }),
-            LastTrace = latest is null ? null : new { latest.TraceId, latest.Question, Spans = spans.Get(latest.TraceId) },
+            LastTrace = latest is null ? null : new
+            {
+                latest.TraceId,
+                latest.Question,
+                // Model calls carry their own token counts; tools run the cost engine and use no tokens.
+                Spans = spans.Get(latest.TraceId).Select(sp => new
+                {
+                    sp.Kind,
+                    sp.Label,
+                    sp.StartMs,
+                    sp.DurationMs,
+                    sp.Error,
+                    sp.InputTokens,
+                    sp.CachedInputTokens,
+                    sp.OutputTokens,
+                    CostUsd = sp.Kind == "model" && sp.InputTokens is not null ? pricing.Cost(sp.InputTokens, sp.CachedInputTokens, sp.OutputTokens)
+                        : sp.Kind == "tool" ? 0 : (double?)null,
+                }),
+                latest.InputTokens,
+                latest.CachedInputTokens,
+                latest.OutputTokens,
+                CostUsd = TurnCost(latest),
+            },
+            Pricing = new
+            {
+                pricing.Model,
+                pricing.InputPerMillionUsd,
+                pricing.CachedInputPerMillionUsd,
+                pricing.OutputPerMillionUsd,
+                pricing.Source,
+                pricing.AsOf,
+                EvaluationCostUsd = evalCost,
+                Projection = perAnswer is not { } pa ? null : new
+                {
+                    AnswersPerDay = pricing.ProjectionAnswersPerDay,
+                    Days = ProjectionDays,
+                    PerAnswerUsd = pa,
+                    MonthlyUsd = pa * pricing.ProjectionAnswersPerDay * ProjectionDays,
+                    Basis = evalCost is not null ? "evaluation run average" : "this session's average",
+                },
+            },
             Links = new
             {
                 FoundryEvaluations = options.FoundryEvaluationsUrl(),

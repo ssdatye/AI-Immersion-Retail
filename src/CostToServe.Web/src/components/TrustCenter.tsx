@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import type { ApiAuth } from "../auth";
-import { caseVerdict, filterCases, isRefusal, mark, ms, policyNote, seconds, sourceLabel, traceSteps } from "../trust";
+import { caseVerdict, cents, filterCases, isRefusal, mark, money, ms, policyNote, seconds, sourceLabel, tokens, traceSteps } from "../trust";
 import type { Caller, EvaluationCase, EvaluationSummary, TrustCheck, TrustData } from "../types";
 import { when } from "./ActionsPanel";
 
@@ -82,6 +82,7 @@ function CaseList({ ev }: { ev: EvaluationSummary }) {
           click a question to see the answer
         </span>
       </div>
+      <div className="wf-scroll" tabIndex={0} role="region" aria-label="Acceptance test questions">
       <table className="table trust-table cases">
         <thead>
           <tr>
@@ -180,6 +181,7 @@ function CaseList({ ev }: { ev: EvaluationSummary }) {
           })}
         </tbody>
       </table>
+      </div>
     </>
   );
 }
@@ -259,8 +261,8 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
   const tests = [
     {
       title: "Agentic workflow",
-      proof: "The agent reasons, picks among six tools, acts on the cost engine and the decision log, and hands off between people: Luis proposes, Dana approves, Luis executes.",
-      live: `${s.allUsers.answers} answers · ${s.decisionsByPeople} decisions by people since the reset`,
+      proof: "The agent reasons, picks among eight tools, acts on the cost engine and the decision log, and hands off between people: Luis proposes, Dana approves, Luis executes.",
+      live: `${s.allUsers.answers} ${s.allUsers.answers === 1 ? "answer" : "answers"} · ${s.decisionsByPeople} ${s.decisionsByPeople === 1 ? "decision" : "decisions"} by people since the reset`,
       target: "trust-trace",
       cta: "See the last trace",
     },
@@ -381,6 +383,13 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
               <div className="source small">
                 <b>Source:</b> deterministic checks by the .NET evaluation runner; judges in Microsoft Foundry project <b>{ev.foundry?.project ?? "proj-evals"}</b>
                 {ev.foundry?.name ? ` (evaluation ${ev.foundry.name})` : ""}. Kept across demo resets; refreshed only by a new run.
+                {ev.tokens && data.pricing?.evaluationCostUsd != null && (
+                  <>
+                    {" "}
+                    <b>Model cost of this run:</b> {tokens(ev.tokens.input)} input and {tokens(ev.tokens.output)} output tokens ·{" "}
+                    {money(data.pricing.evaluationCostUsd)} at list price (agent answers; judges not counted).
+                  </>
+                )}
               </div>
               <div className="small muted section-label">Deterministic checks (code, no model)</div>
               {CHECK_KEYS.map((k) => ev.checks[k] && <Bar key={k} check={ev.checks[k]} />)}
@@ -403,8 +412,9 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
                 </>
               )}
               <div className="caught">
-                <strong>What the tests caught, and we fixed:</strong> "Approve A1" without a region made the agent approve all three regions, and once it
-                subtracted two weeks' costs itself instead of asking the engine. Both are now rules, re-tested on every run.
+                <strong>What the tests caught, and we fixed:</strong> "Approve A1" without a region made the agent approve all three regions; it
+                subtracted costs itself instead of asking the engine; it called a net loss "a cost reduction"; and it listed actions nobody had
+                proposed as waiting for Finance. Each is now a rule or a figure the tools return, re-tested on every run.
               </div>
               <div className="btns">
                 {(ev.caseRows?.length ?? 0) > 0 && (
@@ -479,6 +489,33 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
               {s.allUsers.numbersTraced} of {s.allUsers.numbersQuoted} numbers traced · {s.allUsers.refusedByPolicy} refused by policy
             </div>
           )}
+          {data.pricing && (
+            <div className="cost-box" aria-labelledby="trust-cost">
+              <h3 id="trust-cost">Model tokens and cost</h3>
+              {s.answers > 0 ? (
+                <p>
+                  <b>{money(s.costUsd ?? 0)}</b> for your {s.answers} {s.answers === 1 ? "answer" : "answers"} ·{" "}
+                  {tokens((s.inputTokens ?? 0) + (s.outputTokens ?? 0))} tokens ({tokens(s.inputTokens)} input, {tokens(s.outputTokens)} output)
+                  {s.costPerAnswerUsd != null ? ` · ${cents(s.costPerAnswerUsd)} per answer` : ""} · <b>0 tokens</b> spent on the numbers: the{" "}
+                  {s.toolCalls} tool {s.toolCalls === 1 ? "call" : "calls"} ran the cost engine.
+                </p>
+              ) : (
+                <p className="muted">No answers yet. Every number comes from the cost engine, which uses no model tokens.</p>
+              )}
+              {data.pricing.projection && (
+                <p>
+                  At {data.pricing.projection.answersPerDay.toLocaleString("en-US")} answers a day: about{" "}
+                  <b>{money(data.pricing.projection.monthlyUsd)} a month</b> in model tokens ({cents(data.pricing.projection.perAnswerUsd)} per answer,{" "}
+                  {data.pricing.projection.basis}, {data.pricing.projection.days} days).
+                </p>
+              )}
+              <p className="small muted">
+                {data.pricing.source}, {data.pricing.asOf}: ${data.pricing.inputPerMillionUsd.toFixed(2)} input, $
+                {data.pricing.cachedInputPerMillionUsd.toFixed(2)} cached input, ${data.pricing.outputPerMillionUsd.toFixed(2)} output per million
+                tokens. List price, not a negotiated rate; excludes the gateway, hosting and evaluation judges.
+              </p>
+            </div>
+          )}
           <h3 id="trust-trace">
             How the last answer was produced{" "}
             {data.lastTrace && <span className="muted small">· trace {data.lastTrace.traceId.slice(0, 8)}…</span>}
@@ -489,8 +526,24 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
             <>
               <div className="muted small">“{data.lastTrace?.question}”</div>
               <p className="muted small">Each step from your question to the last word. The steps add up to the total.</p>
+              <div className="wf-scroll" tabIndex={0} role="region" aria-label="Steps of the last answer">
               <table className="wf-table">
-                <caption className="sr-only">Time per step of the last answer, in milliseconds</caption>
+                <caption className="sr-only">Time, model tokens and cost per step of the last answer</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Step</th>
+                    <td aria-hidden="true" />
+                    <th scope="col" className="ms">
+                      Time
+                    </th>
+                    <th scope="col" className="tok">
+                      Tokens in / out
+                    </th>
+                    <th scope="col" className="ms">
+                      Cost
+                    </th>
+                  </tr>
+                </thead>
                 <tbody>
                   {trace.steps.map((x, i) => (
                     <tr key={i} className={x.kind === "tool" ? "engine" : ""}>
@@ -504,6 +557,10 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
                         </div>
                       </td>
                       <td className="ms">{ms(x.durationMs)}</td>
+                      <td className="tok">
+                        {x.kind === "model" && x.inputTokens != null ? `${tokens(x.inputTokens)} / ${tokens(x.outputTokens)}` : x.kind === "tool" ? "0" : ""}
+                      </td>
+                      <td className="ms">{x.kind === "model" || x.kind === "tool" ? money(x.costUsd) : ""}</td>
                     </tr>
                   ))}
                   <tr>
@@ -514,14 +571,21 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
                       </div>
                     </td>
                     <td className="ms">{ms(trace.otherMs)}</td>
+                    <td className="tok" />
+                    <td className="ms" />
                   </tr>
                   <tr className="total">
                     <th scope="row">Total, question to last word</th>
                     <td aria-hidden="true" />
                     <td className="ms">{ms(trace.totalMs)}</td>
+                    <td className="tok">
+                      {data.lastTrace?.inputTokens != null ? `${tokens(data.lastTrace.inputTokens)} / ${tokens(data.lastTrace.outputTokens)}` : "–"}
+                    </td>
+                    <td className="ms">{money(data.lastTrace?.costUsd)}</td>
                   </tr>
                 </tbody>
               </table>
+              </div>
               {toolMs > 0 && (
                 <div className="muted small">
                   The cost engine (deterministic code) ran for {Math.max(1, Math.round(toolMs))} ms; the model spent {seconds(modelMs)} choosing the tool and
@@ -561,6 +625,7 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
         {data.turns.length === 0 ? (
           <p className="muted">No answers yet. Ask the agent a question on the What-If Studio tab.</p>
         ) : (
+          <div className="wf-scroll" tabIndex={0} role="region" aria-label="Every answer since the reset">
           <table className="table trust-table">
             <thead>
               <tr>
@@ -607,6 +672,7 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
               })}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
@@ -630,6 +696,7 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
         <h2>
           Assumptions and limits <span className="muted small">· stated, with how each is validated</span>
         </h2>
+        <div className="wf-scroll" tabIndex={0} role="region" aria-label="Assumptions and limits">
         <table className="table trust-table">
           <thead>
             <tr>
@@ -666,6 +733,7 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
             </tr>
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

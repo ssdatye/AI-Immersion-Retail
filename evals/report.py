@@ -91,7 +91,7 @@ def main() -> int:
         f"| Agent model | `{run['model']}` (same instructions and tools as the studio) |",
         f"| Seed data | version `{run['seed_version']}` |",
         f"| Dataset | `evals/dataset.jsonl`, {run['cases']} cases, SHA-256 `{run['dataset_sha256'][:12]}` |",
-        f"| Tokens (agent turns) | {run['input_tokens']:,} input, {run['output_tokens']:,} output |",
+        f"| Tokens (agent turns) | {run['input_tokens']:,} input ({run.get('cached_input_tokens', 0):,} cached), {run['output_tokens']:,} output |",
         f"| Foundry evaluation | {('`' + foundry['name'] + '` in project `proj-evals`, judge `' + foundry['model'] + '`, status ' + foundry['status']) if foundry else 'not run (--skip-foundry)'} |",
         "",
         "### Deterministic checks (runner, no model)",
@@ -266,6 +266,8 @@ def write_summary(path: Path, rows: list[dict], run: dict, items: dict, foundry:
         "seedVersion": run["seed_version"],
         "cases": len(rows),
         "personas": dict(Counter(r["persona"] for r in rows)),
+        # Agent tokens only (judges are not counted); the studio prices them for the Trust Center.
+        "tokens": {"input": run["input_tokens"], "cachedInput": run.get("cached_input_tokens", 0), "output": run["output_tokens"]},
         "passedAllChecks": sum(r["result"] == "pass" for r in rows),
         "checks": checks,
         "judges": judges,

@@ -28,7 +28,8 @@ public sealed record TrustTurn(
     long? InputTokens,
     long? OutputTokens,
     string? TraceId,
-    bool Errored);
+    bool Errored,
+    long? CachedInputTokens = null);
 
 /// <summary>
 /// Recent agent answers in this server process, for the Trust Center. Bounded and in memory: it
@@ -56,8 +57,10 @@ public sealed class TrustLog
         _turns.Where(t => t.OwnerId == ownerId).OrderByDescending(t => t.At).ToArray();
 }
 
-/// <summary>One span of a chat turn's trace, reduced to what the Trust Center timeline shows.</summary>
-public sealed record TraceSpan(string Kind, string Label, double StartMs, double DurationMs, bool Error);
+/// <summary>One span of a chat turn's trace, reduced to what the Trust Center timeline shows. Model calls carry their token counts.</summary>
+public sealed record TraceSpan(
+    string Kind, string Label, double StartMs, double DurationMs, bool Error,
+    long? InputTokens = null, long? CachedInputTokens = null, long? OutputTokens = null);
 
 /// <summary>
 /// Keeps the spans of recent traces in memory so the Trust Center can show how an answer was produced
@@ -67,7 +70,7 @@ public sealed record TraceSpan(string Kind, string Label, double StartMs, double
 public sealed class TrustSpanStore : BaseProcessor<Activity>
 {
     private const int MaxTraces = 100;
-    private readonly ConcurrentDictionary<string, ConcurrentBag<(DateTime Start, string Kind, string Label, TimeSpan Duration, bool Error)>> _traces = new();
+    private readonly ConcurrentDictionary<string, ConcurrentBag<(DateTime Start, string Kind, string Label, TimeSpan Duration, bool Error, long? In, long? Cached, long? Out)>> _traces = new();
     private readonly ConcurrentQueue<string> _order = new();
 
     public override void OnEnd(Activity activity)
@@ -88,7 +91,12 @@ public sealed class TrustSpanStore : BaseProcessor<Activity>
 
             return [];
         });
-        bag.Add((activity.StartTimeUtc, kind, Label(activity, kind), activity.Duration, activity.Status == ActivityStatusCode.Error));
+        // Token counts per model call (OpenTelemetry GenAI conventions); counts only, never content.
+        var model = kind == "model";
+        bag.Add((activity.StartTimeUtc, kind, Label(activity, kind), activity.Duration, activity.Status == ActivityStatusCode.Error,
+            model ? Count(activity, "gen_ai.usage.input_tokens") : null,
+            model ? Count(activity, "gen_ai.usage.cache_read.input_tokens") : null,
+            model ? Count(activity, "gen_ai.usage.output_tokens") : null));
     }
 
     /// <summary>The trace's spans in start order, with times relative to the first span.</summary>
@@ -101,8 +109,15 @@ public sealed class TrustSpanStore : BaseProcessor<Activity>
 
         var spans = bag.OrderBy(s => s.Start).ThenByDescending(s => s.Duration).ToArray();
         var origin = spans[0].Start;
-        return spans.Select(s => new TraceSpan(s.Kind, s.Label, (s.Start - origin).TotalMilliseconds, s.Duration.TotalMilliseconds, s.Error)).ToArray();
+        return spans.Select(s => new TraceSpan(s.Kind, s.Label, (s.Start - origin).TotalMilliseconds, s.Duration.TotalMilliseconds, s.Error, s.In, s.Cached, s.Out)).ToArray();
     }
+
+    private static long? Count(Activity a, string tag) => a.GetTagItem(tag) switch
+    {
+        null => null,
+        IConvertible c => c.ToInt64(System.Globalization.CultureInfo.InvariantCulture),
+        _ => null,
+    };
 
     /// <summary>Request, agent, model, tool, person (confirmation wait) or data span; null for spans the timeline does not show.</summary>
     public static string? Classify(Activity a)

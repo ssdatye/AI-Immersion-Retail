@@ -114,6 +114,9 @@ export interface TraceStep {
   label: string;
   startMs: number;
   durationMs: number;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  costUsd?: number | null;
 }
 
 /**
@@ -131,10 +134,38 @@ export function traceSteps(spans: TraceSpan[]): { steps: TraceStep[]; otherMs: n
     o !== s && o.startMs <= s.startMs && o.startMs + o.durationMs >= s.startMs + s.durationMs && o.durationMs > s.durationMs;
   const steps = named
     .filter((s) => !named.some((o) => inside(s, o)))
-    .map((s) => ({ kind: s.kind, label: s.label, startMs: s.startMs, durationMs: s.durationMs }));
+    .map((s) => ({
+      kind: s.kind,
+      label: s.label,
+      startMs: s.startMs,
+      durationMs: s.durationMs,
+      inputTokens: s.inputTokens,
+      outputTokens: s.outputTokens,
+      costUsd: s.costUsd,
+    }));
   const used = steps.reduce((a, s) => a + s.durationMs, 0);
   return { steps, otherMs: Math.max(0, totalMs - used), totalMs: Math.max(totalMs, used) };
 }
+
+/** A small dollar amount: "$0.0026" below a cent, "$0.11" or "$90" above. */
+export function money(v: number | null | undefined): string {
+  if (v == null) {
+    return "–";
+  }
+  if (v === 0) {
+    return "$0";
+  }
+  if (v < 0.01) {
+    return `$${v.toFixed(4)}`;
+  }
+  return v < 100 ? `$${v.toFixed(2)}` : `$${Math.round(v).toLocaleString("en-US")}`;
+}
+
+/** A cost per answer in cents: "0.30¢". */
+export const cents = (v: number) => `${(v * 100).toFixed(2)}¢`;
+
+/** A token count with thousands separators. */
+export const tokens = (v: number | null | undefined) => (v == null ? "–" : Math.round(v).toLocaleString("en-US"));
 
 /** Milliseconds as "3 ms" or "1,900 ms". */
 export const ms = (v: number) => `${Math.round(v).toLocaleString("en-US")} ms`;

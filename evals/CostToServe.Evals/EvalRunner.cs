@@ -104,6 +104,7 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
             ["duration_ms"] = watch.ElapsedMilliseconds,
             ["input_tokens"] = response?.Usage?.InputTokenCount,
             ["output_tokens"] = response?.Usage?.OutputTokenCount,
+            ["cached_input_tokens"] = response?.Usage?.CachedInputTokenCount,
             ["foundry"] = FoundryRow(c, instructions, text, calls, tools),
         };
     }

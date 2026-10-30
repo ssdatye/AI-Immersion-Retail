@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { isRefusal, policyNote, receiptSummary, seconds, toolChain } from "../trust";
+import { cents, isRefusal, policyNote, receiptSummary, seconds, tokens, toolChain } from "../trust";
 import type { AnswerEvidence } from "../types";
 
 interface Props {
@@ -101,6 +101,9 @@ export function EvidenceReceipt({ evidence, onOpenTrust }: Props) {
         )}
         <p className="small muted">
           Answered in {seconds(evidence.durationMs)}
+          {evidence.costUsd != null && evidence.inputTokens != null
+            ? ` · ${tokens(evidence.inputTokens + (evidence.outputTokens ?? 0))} model tokens, about ${cents(evidence.costUsd)} at list price`
+            : ""}
           {evidence.traceId ? ` · trace ${evidence.traceId.slice(0, 8)}` : ""}
           {onOpenTrust && (
             <>

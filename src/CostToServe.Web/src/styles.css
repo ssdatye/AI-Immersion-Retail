@@ -2158,6 +2158,56 @@ input[type="range"].has-floor {
   padding-right: 8px;
 }
 
+/* The trace table scrolls on its own on narrow screens (WCAG 1.4.10 allows it for data tables). */
+.wf-scroll {
+  overflow-x: auto;
+}
+
+.wf-scroll .wf-table {
+  min-width: 420px;
+}
+
+.trust-grid > * {
+  min-width: 0;
+}
+
+.wf-table .tok {
+  width: 96px;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  padding-left: 8px;
+}
+
+.wf-table th.ms {
+  width: 70px;
+  text-align: right;
+  padding-right: 0;
+}
+
+.wf-table thead th,
+.wf-table thead td {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Model tokens and cost: what the model spent, and that the numbers cost no tokens. */
+.cost-box {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin: 10px 0;
+  background: var(--bg);
+}
+
+.cost-box h3 {
+  margin: 0 0 4px;
+}
+
+.cost-box p {
+  margin: 2px 0;
+}
+
 .wf-table td.ms {
   width: 70px;
   text-align: right;

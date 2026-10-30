@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caseVerdict, filterCases, policyNote, receiptSummary, toolChain, traceSteps } from "./trust";
+import { caseVerdict, cents, filterCases, money, policyNote, receiptSummary, tokens, toolChain, traceSteps } from "./trust";
 import type { EvaluationCase, TraceSpan } from "./types";
 
 describe("receiptSummary", () => {
@@ -84,5 +84,29 @@ describe("traceSteps", () => {
     expect(steps.map((s) => s.kind)).toEqual(["model", "tool", "model", "person"]);
     expect(totalMs).toBe(5600);
     expect(steps.reduce((a, s) => a + s.durationMs, 0) + otherMs).toBe(totalMs);
+  });
+});
+
+describe("cost formatting", () => {
+  it("shows sub-cent costs with four decimals and larger ones with two", () => {
+    expect(money(0.0026)).toBe("$0.0026");
+    expect(money(0.114)).toBe("$0.11");
+    expect(money(90.4)).toBe("$90.40");
+    expect(money(0)).toBe("$0");
+    expect(money(null)).toBe("–");
+    expect(cents(0.003)).toBe("0.30¢");
+    expect(tokens(13392)).toBe("13,392");
+  });
+
+  it("keeps each model call's tokens and cost on its trace step", () => {
+    const { steps } = traceSteps([
+      { kind: "request", label: "POST /api/chat", startMs: 0, durationMs: 4000, error: false },
+      { kind: "model", label: "Model call", startMs: 10, durationMs: 1900, error: false, inputTokens: 6412, outputTokens: 31, costUsd: 0.0026 },
+      { kind: "tool", label: "run_scenario", startMs: 1920, durationMs: 3, error: false, costUsd: 0 },
+    ]);
+    expect(steps.map((x) => [x.kind, x.inputTokens ?? null, x.costUsd])).toEqual([
+      ["model", 6412, 0.0026],
+      ["tool", null, 0],
+    ]);
   });
 });

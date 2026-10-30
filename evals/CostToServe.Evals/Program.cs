@@ -90,6 +90,7 @@ var summary = new JsonObject
     ["failed"] = results.Count(r => r["result"]!.GetValue<string>() == "fail"),
     ["input_tokens"] = results.Sum(r => r["input_tokens"]?.GetValue<long>() ?? 0),
     ["output_tokens"] = results.Sum(r => r["output_tokens"]?.GetValue<long>() ?? 0),
+    ["cached_input_tokens"] = results.Sum(r => r["cached_input_tokens"]?.GetValue<long>() ?? 0),
 };
 await File.WriteAllTextAsync(Path.Combine(outDir, "run.json"), summary.ToJsonString(new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine($"Deterministic checks: {summary["passed"]}/{summary["cases"]} cases passed. Run folder: {outDir}");
