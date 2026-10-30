@@ -88,11 +88,20 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
 
 * Sign in as Dana (network-wide, approves) or Luis (Southeast only, proposes and executes).
   Before Entra is set up, pick a local dev persona at the top right instead.
-* Change the diesel price with presets or sliders, and toggle playbook actions or levers.
-  Outcomes recompute on the server with the same engine and scope rules as the agent.
-* Ask the agent questions. Tool calls appear as chips. When the agent asks to log a
-  decision, a card appears; nothing is logged until you click Confirm.
-* Approve, reject, propose or execute from the actions table. Buttons follow the role.
+* The conversation with the agent is the main view. The quarter's outcomes (fuel shock,
+  offset, net operating income, Express within 3 hours) are pinned above it, for the
+  current model settings.
+* Ask the agent questions. Tool calls appear as chips. Under each answer, "✓ Proof"
+  expands to the tool calls in order and the field each number came from. When the agent
+  asks to log a decision, a card appears; nothing is logged until you click Confirm.
+* For fine adjustments without the agent, open **⚙ Fine-tune the model**: diesel presets
+  and sliders, every lever, and outcome details. Outcomes recompute on the server with the
+  same engine and scope rules as the agent, with no model call. Changes you make there are
+  listed as "not shared with the agent" until you click **Ask the agent about these
+  changes** (in the pinned bar or the panel's footer) or ask any question with "Share the
+  model settings with the agent" on. **Undo** reverts them.
+* Open **Decisions** to approve, reject, propose or execute from the actions table. Buttons
+  follow the role.
 * Decisions apply to one region at a time. Luis proposes and executes for the Southeast only.
   Dana picks the region with the "Decide for" tabs in Actions and decisions (each tab counts
   what is waiting there). Approving A2 for the Southeast changes only the Southeast's numbers;
@@ -100,9 +109,10 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
   outcomes apply each approval in its own region, and the sliders show what-ifs only.
 * See what is waiting for you. A header badge counts the actions waiting on your role (Dana:
   proposals to approve or reject; Luis: approvals to execute). Those rows sort first and are
-  highlighted, and the chat shows a "Waiting for you" banner with the buttons.
+  highlighted, and the chat shows a "Waiting for you" banner with the buttons. The badge and
+  the **🔔 Decisions** button open the decisions panel at the first waiting row.
 * Undo an approval with Revoke (finance, before execution, reason required). Click an
-  approved chip under Impact levers to jump to its row. Executed actions stay final until
+  approved chip under Impact levers to jump to its row in Decisions. Executed actions stay final until
   `./scripts/reset-demo.sh`.
 * Each action starts at its playbook setting, for example A6 shifts 3% of orders to Pickup.
   A1, A2, A4 and A6 can be adjusted. Luis can propose a different value, or change his own
@@ -207,7 +217,8 @@ The **🛡 Trust Center** tab shows why the answers can be trusted, top to botto
   source, a link to the run in Microsoft Foundry, and every question asked. Click a question to
   see the agent's answer and where each number came from.
 * **Live since the demo reset:** your answers' evidence, totals for everyone, and how the latest
-  answer was produced (request, agent, model and tool spans).
+  answer was produced: the model, tool and other steps, plus "Other" for the rest of the
+  request, which add up to the total. "Pause live updates" stops the 5-second refresh.
 * **Controls in force**, and **assumptions and limits** with how each is validated.
 
 Under every agent answer, a receipt traces each quoted number to the tool field it came from, or

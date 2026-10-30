@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, loadPersona, savePersona } from "./api";
 import { EntraAuth, loadAuthConfig, personaAuth, type ApiAuth, type AuthConfig } from "./auth";
 import { focusAction, leversAt, planIn, waitingFor, waitingLabel, type WaitingItem } from "./pending";
@@ -8,6 +8,8 @@ import { TrustCenter } from "./components/TrustCenter";
 import { FuelPanel } from "./components/FuelPanel";
 import { LeversPanel } from "./components/LeversPanel";
 import { Outcomes } from "./components/Outcomes";
+import { OutcomesBar, type DrawerView } from "./components/OutcomesBar";
+import { changesQuestion, modelChanges, settingsSummary, type ModelSettings } from "./modelSync";
 import { NO_LEVERS, type Dashboard, type DecisionRecord, type Levers, type Persona, type Playbook, type ScenarioResult, type ExecutionResults } from "./types";
 
 /** Chooses the sign-in mode the API reports: Entra (MSAL) or local dev personas. */
@@ -134,6 +136,13 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
   // The studio stays mounted while the Trust Center shows, so the chat and sliders keep their state.
   const [tab, setTab] = useState<"studio" | "trust">("studio");
   const [evidenceTick, setEvidenceTick] = useState(0);
+  // The conversation leads; the model and decisions open in a side panel only when wanted.
+  const [drawer, setDrawer] = useState<DrawerView | null>(null);
+  // Model settings last shared with the agent, to show what changed since.
+  const [synced, setSynced] = useState<ModelSettings>({ dieselShift: 0.5, duration: 13, levers: NO_LEVERS, region: "", includePlan: true });
+  const [askRequest, setAskRequest] = useState<{ text: string; nonce: number } | null>(null);
+  const barRef = useRef<HTMLElement>(null);
+  const drawerRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     api<Dashboard>(auth, "/api/dashboard")
@@ -164,6 +173,8 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
   const waiting = useMemo(() => (dashboard && playbook ? waitingFor(dashboard.caller, playbook.actions) : []), [dashboard, playbook]);
   const applyPlan = includePlan && plan.length > 0;
   const showWaiting = (w: WaitingItem) => {
+    setTab("studio");
+    setDrawer("decisions");
     setDecisionRegion(w.region);
     setTimeout(() => focusAction(w.actionId), 300);
   };
@@ -218,6 +229,65 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
     return Object.fromEntries(entries) as Record<string, { levers: Levers; setting: string | null }>;
   }, [playbook, singleRegion, defaults]);
   const lockedActions = applyPlan && singleRegion ? [...new Set(plan.map((p) => p.actionId))] : [];
+
+  const current: ModelSettings = { dieselShift, duration, levers, region, includePlan };
+  const currentRef = useRef(current);
+  currentRef.current = current;
+  const changes = modelChanges(synced, current);
+  const askAboutChanges = () => {
+    setTab("studio");
+    setAskRequest({ text: changesQuestion(changes), nonce: Date.now() });
+  };
+  const undoChanges = () => {
+    setDieselShift(synced.dieselShift);
+    setDuration(synced.duration);
+    setLevers(synced.levers);
+    setRegion(synced.region);
+    setIncludePlan(synced.includePlan);
+  };
+
+  // Keeps the side panel just below the pinned outcomes bar, and the chat sized to the space under it.
+  useEffect(() => {
+    const measure = () => {
+      const bar = barRef.current;
+      if (!bar) {
+        return;
+      }
+      const pinned = getComputedStyle(bar).position === "sticky";
+      const rect = bar.getBoundingClientRect();
+      const root = document.documentElement.style;
+      root.setProperty("--bar-h", `${pinned ? bar.offsetHeight : 0}px`);
+      root.setProperty("--drawer-top", `${Math.max(0, Math.ceil(rect.bottom))}px`);
+      // The chat fills the rest of the first screen, so the question box is visible without scrolling.
+      root.setProperty("--chat-h", `${Math.max(420, window.innerHeight - (rect.bottom + window.scrollY) - 30)}px`);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (barRef.current) {
+      observer.observe(barRef.current);
+    }
+    observer.observe(document.body);
+    window.addEventListener("scroll", measure, { passive: true });
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("scroll", measure);
+      window.removeEventListener("resize", measure);
+    };
+  }, [dashboard, tab]);
+
+  const closeDrawer = () => {
+    const was = drawer;
+    setDrawer(null);
+    setTimeout(() => barRef.current?.querySelector<HTMLElement>(`.obar-buttons button:nth-child(${was === "decisions" ? 2 : 1})`)?.focus(), 0);
+  };
+
+  const openDrawer = (view: DrawerView | null) => {
+    setDrawer(view);
+    if (view) {
+      setTimeout(() => drawerRef.current?.querySelector<HTMLElement>("h2")?.focus(), 50);
+    }
+  };
   const planNote =
     applyPlan && !singleRegion
       ? `Approved actions apply only in their own region (${plan.map((p) => `${p.actionId} in ${p.region}`).join(", ")}). ` +
@@ -240,86 +310,187 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
               </button>
             )}
           </div>
-          <nav className="tabs" role="tablist">
-            <button role="tab" aria-selected={tab === "studio"} className={tab === "studio" ? "active" : ""} onClick={() => setTab("studio")}>
+          <div
+            className="tabs"
+            role="tablist"
+            aria-label="Studio views"
+            onKeyDown={(e) => {
+              if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                const next = tab === "studio" ? "trust" : "studio";
+                setTab(next);
+                document.getElementById(`tab-${next}`)?.focus();
+              }
+            }}
+          >
+            <button
+              role="tab"
+              id="tab-studio"
+              aria-selected={tab === "studio"}
+              aria-controls="panel-studio"
+              tabIndex={tab === "studio" ? 0 : -1}
+              className={tab === "studio" ? "active" : ""}
+              onClick={() => setTab("studio")}
+            >
               What-If Studio
             </button>
-            <button role="tab" aria-selected={tab === "trust"} className={tab === "trust" ? "active" : ""} onClick={() => setTab("trust")}>
+            <button
+              role="tab"
+              id="tab-trust"
+              aria-selected={tab === "trust"}
+              aria-controls="panel-trust"
+              tabIndex={tab === "trust" ? 0 : -1}
+              className={tab === "trust" ? "active" : ""}
+              onClick={() => setTab("trust")}
+            >
               🛡 Trust Center
             </button>
-          </nav>
-          <div hidden={tab !== "trust"}>
+          </div>
+          <div hidden={tab !== "trust"} role="tabpanel" id="panel-trust" aria-labelledby="tab-trust">
             <TrustCenter auth={auth} caller={dashboard.caller} visible={tab === "trust"} refreshKey={evidenceTick} onShowStudio={() => setTab("studio")} />
           </div>
-          <main hidden={tab !== "studio"}>
-            <div className="column">
-              <FuelPanel
-                dashboard={dashboard}
-                dieselShift={dieselShift}
-                duration={duration}
-                onShift={setDieselShift}
-                onDuration={setDuration}
-                onPreset={(s, d) => {
-                  setDieselShift(s);
-                  setDuration(d);
-                }}
-              />
-              <LeversPanel
-                dashboard={dashboard}
-                levers={levers}
-                onChange={setLevers}
-                region={region}
-                onRegion={setRegion}
-                lockedActions={lockedActions}
-                onLockedClick={(id) => {
-                  if (singleRegion) {
-                    setDecisionRegion(singleRegion);
+          <div className="studio" hidden={tab !== "studio"} role="tabpanel" id="panel-studio" aria-labelledby="tab-studio">
+            <OutcomesBar
+              ref={barRef}
+              result={scenario}
+              loading={scenarioLoading}
+              error={scenarioError}
+              summary={settingsSummary(current, plan.length)}
+              changes={changes}
+              onAskChanges={askAboutChanges}
+              drawer={drawer}
+              onDrawer={openDrawer}
+              waitingCount={waiting.length}
+            />
+            <div className={`studio-body ${drawer ? "drawer-open" : ""}`}>
+              <main className="studio-main">
+                <ChatPanel
+                  auth={auth}
+                  displayName={dashboard.caller.displayName}
+                  suggestions={dashboard.suggestions}
+                  studioContext={studioContext}
+                  playbook={playbook}
+                  waiting={waiting}
+                  decisionRegion={decisionRegion}
+                  onDecisionLogged={refreshDecisions}
+                  onEvidence={() => setEvidenceTick((n) => n + 1)}
+                  askRequest={askRequest}
+                  onShared={() => setSynced(currentRef.current)}
+                  onOpenTrust={() => setTab("trust")}
+                />
+              </main>
+              <aside
+                id="studio-drawer"
+                className="drawer"
+                hidden={!drawer}
+                ref={drawerRef}
+                aria-labelledby="drawer-h"
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") {
+                    closeDrawer();
                   }
-                  setTimeout(() => focusAction(id), 300);
                 }}
-                actionLevers={regionLevers}
-                planNote={planNote}
-              />
+              >
+                <div className="drawer-head">
+                  <div>
+                    <h2 id="drawer-h" tabIndex={-1}>
+                      {drawer === "decisions" ? "Actions and decisions" : "Fine-tune the model"}
+                    </h2>
+                    <span className="muted small">{drawer === "decisions" ? "People decide, region by region" : "Cost engine · instant · no AI"}</span>
+                  </div>
+                  <button type="button" onClick={closeDrawer}>
+                    Close ▸
+                  </button>
+                </div>
+                <div className="drawer-content">
+                  {/* Both views stay mounted so drafts and positions survive switching. */}
+                  <div hidden={drawer !== "model"}>
+                    <FuelPanel
+                      dashboard={dashboard}
+                      dieselShift={dieselShift}
+                      duration={duration}
+                      onShift={setDieselShift}
+                      onDuration={setDuration}
+                      onPreset={(sh, d) => {
+                        setDieselShift(sh);
+                        setDuration(d);
+                      }}
+                    />
+                    <LeversPanel
+                      dashboard={dashboard}
+                      levers={levers}
+                      onChange={setLevers}
+                      region={region}
+                      onRegion={setRegion}
+                      lockedActions={lockedActions}
+                      onLockedClick={(id) => {
+                        if (singleRegion) {
+                          setDecisionRegion(singleRegion);
+                        }
+                        setDrawer("decisions");
+                        setTimeout(() => focusAction(id), 300);
+                      }}
+                      actionLevers={regionLevers}
+                      planNote={planNote}
+                    />
+                    <Outcomes
+                      result={scenario}
+                      error={scenarioError}
+                      loading={scenarioLoading}
+                      costRows={dashboard.costPerOrder}
+                      period={dashboard.period}
+                      planActions={plan.map((p) => ({ id: p.actionId, region: p.region, setting: p.settingText, executed: p.executed }))}
+                      multiRegion={!singleRegion}
+                      includePlan={includePlan}
+                      onIncludePlan={setIncludePlan}
+                      showKpis={false}
+                    />
+                  </div>
+                  <div hidden={drawer !== "decisions"}>
+                    <ActionsPanel
+                      auth={auth}
+                      caller={dashboard.caller}
+                      playbook={playbook}
+                      decisions={decisions}
+                      results={results}
+                      decisionRegion={decisionRegion}
+                      regions={dashboard.regions}
+                      onRegion={setDecisionRegion}
+                      waiting={waiting}
+                      onChanged={refreshDecisions}
+                    />
+                  </div>
+                </div>
+                {drawer === "model" && (
+                  <div className={`drawer-foot ${changes.length ? "pending" : ""}`} aria-live="polite">
+                    {changes.length === 0 ? (
+                      <p className="small muted">Changes here are instant and stay with you until you ask the agent about them.</p>
+                    ) : (
+                      <>
+                        <strong>
+                          You changed {changes.length} {changes.length === 1 ? "setting" : "settings"} · not shared with the agent yet
+                        </strong>
+                        <ul>
+                          {changes.map((c) => (
+                            <li key={c.key}>
+                              {c.label}: {c.from} → <strong>{c.to}</strong>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="drawer-foot-buttons">
+                          <button type="button" className="primary" onClick={askAboutChanges}>
+                            Ask the agent about {changes.length === 1 ? "this change" : "these changes"}
+                          </button>
+                          <button type="button" onClick={undoChanges}>
+                            Undo
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </aside>
             </div>
-            <div className="column wide">
-              <Outcomes
-                result={scenario}
-                error={scenarioError}
-                loading={scenarioLoading}
-                costRows={dashboard.costPerOrder}
-                period={dashboard.period}
-                planActions={plan.map((p) => ({ id: p.actionId, region: p.region, setting: p.settingText, executed: p.executed }))}
-                multiRegion={!singleRegion}
-                includePlan={includePlan}
-                onIncludePlan={setIncludePlan}
-              />
-              <ActionsPanel
-                auth={auth}
-                caller={dashboard.caller}
-                playbook={playbook}
-                decisions={decisions}
-                results={results}
-                decisionRegion={decisionRegion}
-                regions={dashboard.regions}
-                onRegion={setDecisionRegion}
-                waiting={waiting}
-                onChanged={refreshDecisions}
-              />
-            </div>
-            <div className="column">
-              <ChatPanel
-                auth={auth}
-                displayName={dashboard.caller.displayName}
-                suggestions={dashboard.suggestions}
-                studioContext={studioContext}
-                playbook={playbook}
-                waiting={waiting}
-                decisionRegion={decisionRegion}
-                onDecisionLogged={refreshDecisions}
-                onEvidence={() => setEvidenceTick((n) => n + 1)}
-              />
-            </div>
-          </main>
+          </div>
         </>
       )}
     </Shell>

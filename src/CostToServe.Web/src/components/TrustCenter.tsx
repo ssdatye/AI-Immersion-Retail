@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import type { ApiAuth } from "../auth";
-import { caseVerdict, filterCases, isRefusal, mark, policyNote, seconds, sourceLabel } from "../trust";
+import { caseVerdict, filterCases, isRefusal, mark, ms, policyNote, seconds, sourceLabel, traceSteps } from "../trust";
 import type { Caller, EvaluationCase, EvaluationSummary, TrustCheck, TrustData } from "../types";
 import { when } from "./ActionsPanel";
 
@@ -188,6 +188,8 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
   const [data, setData] = useState<TrustData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showCases, setShowCases] = useState(false);
+  // WCAG 2.2.2: the live refresh can be paused.
+  const [paused, setPaused] = useState(false);
 
   const load = useCallback(() => {
     api<TrustData>(auth, "/api/trust").then(
@@ -204,9 +206,12 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
       return;
     }
     load();
+    if (paused) {
+      return;
+    }
     const timer = setInterval(load, 5000);
     return () => clearInterval(timer);
-  }, [visible, load, refreshKey]);
+  }, [visible, load, refreshKey, paused]);
 
   if (error && !data) {
     return <p className="error">Could not load the Trust Center: {error}</p>;
@@ -218,9 +223,11 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
   const ev = data.evaluation;
   const s = data.session;
   const span = data.lastTrace?.spans ?? [];
-  const total = Math.max(1, ...span.map((x) => x.startMs + x.durationMs));
-  const toolMs = span.filter((x) => x.kind === "tool").reduce((a, x) => a + x.durationMs, 0);
-  const modelMs = span.filter((x) => x.kind === "model").reduce((a, x) => a + x.durationMs, 0);
+  // Steps that add up: named spans plus "other", equal to the request total.
+  const trace = traceSteps(span);
+  const total = Math.max(1, trace.totalMs);
+  const toolMs = trace.steps.filter((x) => x.kind === "tool").reduce((a, x) => a + x.durationMs, 0);
+  const modelMs = trace.steps.filter((x) => x.kind === "model").reduce((a, x) => a + x.durationMs, 0);
   const foundryLink = data.links.foundryRun ?? data.links.foundryEvaluations;
 
   const go = (target: string) => {
@@ -423,10 +430,13 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
         <section className="panel" id="trust-live">
           <h2>
             Live since the demo reset{" "}
-            <span className="live">
-              <span className="dot" />
-              live
+            <span className={`live${paused ? " paused" : ""}`}>
+              <span className="dot" aria-hidden="true" />
+              {paused ? "paused" : "live"}
             </span>
+            <button type="button" className="link-inline small" aria-pressed={paused} onClick={() => setPaused(!paused)}>
+              {paused ? "Resume live updates" : "Pause live updates"}
+            </button>
             <span className="muted small">· {when(s.since)} · your answers</span>
           </h2>
           <div className="tkpis">
@@ -472,20 +482,40 @@ export function TrustCenter({ auth, caller, visible, refreshKey, onShowStudio }:
           ) : (
             <>
               <div className="muted small">“{data.lastTrace?.question}”</div>
-              <div className="wf">
-                {span.map((x, i) => (
-                  <div className="wf-row" key={i}>
-                    <span>{x.label}</span>
-                    <div className="lane">
-                      <div
-                        className={`seg ${x.kind}${x.error ? " err" : ""}`}
-                        style={{ left: `${(x.startMs / total) * 100}%`, width: `${Math.max(0.6, (x.durationMs / total) * 100)}%` }}
-                      />
-                    </div>
-                    <span className={x.kind === "tool" ? "good" : ""}>{x.durationMs < 1000 ? `${Math.round(x.durationMs)} ms` : seconds(x.durationMs)}</span>
-                  </div>
-                ))}
-              </div>
+              <p className="muted small">Each step from your question to the last word. The steps add up to the total.</p>
+              <table className="wf-table">
+                <caption className="sr-only">Time per step of the last answer, in milliseconds</caption>
+                <tbody>
+                  {trace.steps.map((x, i) => (
+                    <tr key={i} className={x.kind === "tool" ? "engine" : ""}>
+                      <th scope="row">{x.label}</th>
+                      <td aria-hidden="true">
+                        <div className="lane">
+                          <div
+                            className={`seg ${x.kind}`}
+                            style={{ left: `${(x.startMs / total) * 100}%`, width: `${Math.max(0.6, (x.durationMs / total) * 100)}%` }}
+                          />
+                        </div>
+                      </td>
+                      <td className="ms">{ms(x.durationMs)}</td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <th scope="row">Other (gateway, sign-in, conversation history, evidence check, agent framework)</th>
+                    <td aria-hidden="true">
+                      <div className="lane">
+                        <div className="seg other" style={{ left: 0, width: `${Math.max(0.6, (trace.otherMs / total) * 100)}%` }} />
+                      </div>
+                    </td>
+                    <td className="ms">{ms(trace.otherMs)}</td>
+                  </tr>
+                  <tr className="total">
+                    <th scope="row">Total, question to last word</th>
+                    <td aria-hidden="true" />
+                    <td className="ms">{ms(trace.totalMs)}</td>
+                  </tr>
+                </tbody>
+              </table>
               {toolMs > 0 && (
                 <div className="muted small">
                   The cost engine (deterministic code) ran for {Math.max(1, Math.round(toolMs))} ms; the model spent {seconds(modelMs)} choosing the tool and

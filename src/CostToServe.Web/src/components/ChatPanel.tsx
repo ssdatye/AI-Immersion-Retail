@@ -42,14 +42,33 @@ interface Props {
   onDecisionLogged: () => void;
   /** Called when an answer's evidence arrives, so the Trust Center can refresh. */
   onEvidence?: () => void;
+  /** A question to send from outside the chat (for example "Ask the agent about these changes"); sent when the nonce changes. */
+  askRequest?: { text: string; nonce: number } | null;
+  /** Called when a question is sent with the current model settings attached as context. */
+  onShared?: () => void;
+  /** Opens the Trust Center tab. */
+  onOpenTrust?: () => void;
 }
 
-export function ChatPanel({ auth, displayName, suggestions, studioContext, playbook, waiting, decisionRegion, onDecisionLogged, onEvidence }: Props) {
+export function ChatPanel({
+  auth,
+  displayName,
+  suggestions,
+  studioContext,
+  playbook,
+  waiting,
+  decisionRegion,
+  onDecisionLogged,
+  onEvidence,
+  askRequest,
+  onShared,
+  onOpenTrust,
+}: Props) {
   const [turns, setTurns] = useState<Turn[]>([
     {
       id: 0,
       role: "agent",
-      text: `Hi ${displayName}. Ask a what-if question, or move the fuel and lever controls. Every number I give comes from the cost engine. All data is illustrative.`,
+      text: `Hi ${displayName}. Ask a what-if question. For fine adjustments without the agent, open ⚙ Fine-tune the model. Every number I give comes from the cost engine. All data is illustrative.`,
       tools: [],
       cards: [],
     },
@@ -112,7 +131,7 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
     }
   };
 
-  const send = async (question: string) => {
+  const send = async (question: string, forceContext = false) => {
     const text = question.trim();
     if (!text || busy) {
       return;
@@ -132,7 +151,11 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
     ]);
 
     // Studio settings are shared as context, not instructions; the agent still uses tools for every number.
-    const message = shareContext ? `${text}\n\n[Studio settings for reference: ${studioContext}]` : text;
+    const withContext = shareContext || forceContext;
+    const message = withContext ? `${text}\n\n[Studio settings for reference: ${studioContext}]` : text;
+    if (withContext) {
+      onShared?.();
+    }
     try {
       await streamChat(auth, message, conversationId.current, (event, data) => {
         switch (event) {
@@ -174,6 +197,15 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
     }
   };
 
+  // Questions sent from outside the chat always carry the model settings: they are about those settings.
+  const lastNonce = useRef(0);
+  useEffect(() => {
+    if (askRequest && askRequest.nonce !== lastNonce.current) {
+      lastNonce.current = askRequest.nonce;
+      void send(askRequest.text, true);
+    }
+  }, [askRequest]);
+
   const resolve = async (turnId: number, card: ConfirmationCard, confirm: boolean) => {
     update(turnId, (t) => ({ ...t, cards: t.cards.map((c) => (c.id === card.id ? { ...c, status: confirm ? "confirmed" : "cancelled" } : c)) }));
     try {
@@ -185,7 +217,7 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
 
   return (
     <section className="panel chat">
-      <h2>Cost-to-Serve agent</h2>
+      <h2>Ask the agent</h2>
       {waiting.length > 0 && (
         <div className="waiting-banner">
           <div className="waiting-title">🔔 Waiting for you</div>
@@ -206,7 +238,7 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
           />
         </div>
       )}
-      <div className="chat-log" ref={log}>
+      <div className="chat-log" ref={log} role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversation with the agent" tabIndex={0}>
         {turns.map((t) => (
           <div key={t.id} className={`bubble ${t.role}`}>
             <div className="who">{t.role === "user" ? displayName : t.role === "system" ? "Studio (no agent)" : "Agent"}</div>
@@ -263,7 +295,7 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
                 onDecided={onDecisionLogged}
               />
             )}
-            {t.evidence && !t.streaming && <EvidenceReceipt evidence={t.evidence} />}
+            {t.evidence && !t.streaming && <EvidenceReceipt evidence={t.evidence} onOpenTrust={onOpenTrust} />}
             {t.traceId && !t.evidence && <div className="trace">trace {t.traceId}</div>}
           </div>
         ))}
@@ -282,13 +314,23 @@ export function ChatPanel({ auth, displayName, suggestions, studioContext, playb
           void send(input);
         }}
       >
-        <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask a what-if question, or type /help for commands" maxLength={1500} disabled={busy} />
+        <label className="sr-only" htmlFor="chat-input">
+          Ask the agent
+        </label>
+        <input
+          id="chat-input"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask a what-if question, or type /help for commands"
+          maxLength={1500}
+          disabled={busy}
+        />
         <button className="primary" disabled={busy || !input.trim()}>
           Send
         </button>
       </form>
       <label className="check small">
-        <input type="checkbox" checked={shareContext} onChange={(e) => setShareContext(e.target.checked)} /> Share current studio settings with the agent
+        <input type="checkbox" checked={shareContext} onChange={(e) => setShareContext(e.target.checked)} /> Share the model settings with the agent
       </label>
     </section>
   );

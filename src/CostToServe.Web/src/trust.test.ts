@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { caseVerdict, filterCases, policyNote, receiptSummary } from "./trust";
-import type { EvaluationCase } from "./types";
+import { caseVerdict, filterCases, policyNote, receiptSummary, toolChain, traceSteps } from "./trust";
+import type { EvaluationCase, TraceSpan } from "./types";
 
 describe("receiptSummary", () => {
   it("reports traced numbers, review items and answers without figures", () => {
@@ -36,5 +36,49 @@ describe("acceptance tests", () => {
     expect(filterCases(cases, "all")).toHaveLength(3);
     expect(filterCases(cases, "luis").map((c) => c.id)).toEqual(["1", "2"]);
     expect(filterCases(cases, "refusals").map((c) => c.id)).toEqual(["2"]);
+  });
+});
+
+describe("toolChain", () => {
+  it("credits each number to the call it came from, in call order", () => {
+    const chain = toolChain({
+      tools: [
+        { name: "get_action_playbook", outcome: "ok" },
+        { name: "run_scenario", outcome: "ok" },
+      ],
+      numbers: [
+        { text: "$9.4M", source: "run_scenario.fuelShockQuarterCostUsd" },
+        { text: "$0.75", source: "your question" },
+        { text: "106%", source: "run_scenario.offsetOfFuelShockPct" },
+        { text: "$1.23", source: null },
+        { text: "80%", source: "agent instructions" },
+      ],
+    });
+    expect(chain.calls.map((c) => c.name)).toEqual(["get_action_playbook", "run_scenario"]);
+    expect(chain.calls[1].numbers).toEqual([
+      { text: "$9.4M", field: "fuelShockQuarterCostUsd" },
+      { text: "106%", field: "offsetOfFuelShockPct" },
+    ]);
+    expect(chain.fromQuestion).toEqual(["$0.75"]);
+    expect(chain.fromInstructions).toEqual(["80%"]);
+    expect(chain.toReview).toEqual(["$1.23"]);
+  });
+});
+
+describe("traceSteps", () => {
+  it("adds up to the request total, with nested spans dropped and the rest as other", () => {
+    const span = (kind: TraceSpan["kind"], startMs: number, durationMs: number) => ({ kind, label: kind, startMs, durationMs, error: false });
+    const { steps, otherMs, totalMs } = traceSteps([
+      span("request", 0, 5600),
+      span("agent", 300, 5200),
+      span("model", 300, 2100),
+      span("tool", 2400, 3),
+      span("model", 2403, 1900),
+      span("person", 4400, 400),
+      span("data", 4450, 50),
+    ]);
+    expect(steps.map((s) => s.kind)).toEqual(["model", "tool", "model", "person"]);
+    expect(totalMs).toBe(5600);
+    expect(steps.reduce((a, s) => a + s.durationMs, 0) + otherMs).toBe(totalMs);
   });
 });

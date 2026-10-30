@@ -14,18 +14,21 @@ interface Props {
   multiRegion: boolean;
   includePlan: boolean;
   onIncludePlan: (value: boolean) => void;
+  /** False when the headline numbers are shown elsewhere (the pinned outcomes bar). */
+  showKpis?: boolean;
 }
 
-export function Outcomes({ result, error, loading, costRows, period, planActions, multiRegion, includePlan, onIncludePlan }: Props) {
+export function Outcomes({ result, error, loading, costRows, period, planActions, multiRegion, includePlan, onIncludePlan, showKpis = true }: Props) {
   return (
     <section className="panel">
       <h2>
-        Scenario outcomes {result && <span className="muted">· {result.scope}</span>} {loading && <span className="muted">· updating…</span>}
+        {showKpis ? "Scenario outcomes" : "Outcome details"} {result && <span className="muted">· {result.scope}</span>}{" "}
+        {loading && <span className="muted">· updating…</span>}
       </h2>
       {error && <p className="error">{error}</p>}
       {result && (
         <>
-          <div className="kpis">
+          <div className="kpis" hidden={!showKpis}>
             <div className={`kpi ${result.fuelShockQuarterCostUsd > 0 ? "bad" : "good"}`}>
               <div className="value">{usdCompact(result.fuelShockQuarterCostUsd)}</div>
               <div className="label">
