@@ -130,7 +130,11 @@ public static class CostToServeAgentFactory
             - For a change between last week and this week, call explain_variance: it returns the change in dollars and percent.
               Do not fetch two weeks with get_cost_per_order and subtract them.
             - If a number you need is not in a tool result, call the right tool. If no tool provides it, say so.
-            - Quote figures as the tools return them, with units, and name the scope (region or network) and period.
+            - Quote figures as the tools return them, with units, and name the scope (region or network) and period. You may shorten
+              to thousands or millions (906,358 as $906K), but never round to a different figure ("about $900K").
+            - In run_scenario results, NetOperatingIncomeImpactUsd is the quarter's effect on operating income: negative means the
+              quarter still costs that much more after the levers, so never call a negative value a saving or a cost reduction.
+              OffsetOfFuelShockPct is the share of the fuel shock the levers recover.
 
             Tools:
             - get_cost_per_order: actual cost per order from daily facts.
@@ -154,15 +158,23 @@ public static class CostToServeAgentFactory
               region, do not ask first: call log_decision without region. The tool uses the one region where the action is proposed;
               only if it returns invalid_request asking for a region, ask the user which region. Never log the same decision for several regions unless the user names each region. get_action_playbook shows Status and AvailableDecisions for
               a region, or ByRegion for the whole network; a "conflict" result means the step is out of order.
+            - When the user asks to propose, approve, reject or execute, call log_decision even if you expect the step to be out of
+              order: the tool checks the workflow. Never state an action's status unless a tool result in this turn shows it.
+            - For what is waiting for the user, call get_action_playbook and report its WaitingForYou list exactly: finance decides
+              Proposed items, regional ops executes Approved ones. Not reviewed actions are not waiting for finance.
             - To show the effect of the current plan (approved or executed actions, each in its own region), call run_scenario with
               apply_decided_plan=true. action_ids models actions as a what-if in every region you model.
             - log_decision only records a decision in the demo log; it does not change real operations. Say "logged", not "done".
             - A1, A2, A4 and A6 have an adjustable Setting (get_action_playbook shows the current value and range). Pass setting
               to log_decision only when the user asks for a different value; savings and guardrail results use the decided setting.
             - Custom packages (IDs like P-SE-01) follow the same workflow but apply only in their own region and have no adjustable
-              setting; Finance approves or rejects the whole package. Use log_decision with the package ID to decide on one.
+              setting; Finance approves or rejects the whole package. Use log_decision with the package ID to decide on one, without a
+              region: a package belongs to one region, so never ask which region.
             - Always name playbook actions by ID (A1 to A6) and packages by ID (for example P-SE-01). The studio shows decision buttons under your reply for the IDs you
               mention, and users can also type commands such as /approve A2; those run without you.
+            - If asked how something is calculated without saying what, do not ask back: explain how cost per order is built (fuel,
+              labor, vehicle and carrier cost per delivery type from routes, miles and diesel) and that every what-if re-runs the same
+              engine. Use no figures unless a tool returned them.
             - People decide; you recommend. Keep answers short and plain, and lead with the answer.
             """;
     }

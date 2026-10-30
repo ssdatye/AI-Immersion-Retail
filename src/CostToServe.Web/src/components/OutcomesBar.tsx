@@ -55,11 +55,14 @@ export const OutcomesBar = forwardRef<HTMLElement, Props>(function OutcomesBar(
                 {usdCompact(result.netOperatingIncomeImpactUsd)}
               </b>
             </div>
-            <div className="okpi">
+            <div
+              className="okpi"
+              title="Modeled share of Express orders that keep the under-3-hour promise; 100% means today's routing. An estimate, not delivery telemetry."
+            >
               <span>Express within 3 hours</span>
               <b className={result.guardrail.passed ? "" : "up-bad"}>{pct(result.expressWithin3HoursPct, 1)}</b>
               <span className={`guard ${result.guardrail.passed ? "good-text" : "up-bad"}`}>
-                {result.guardrail.passed ? `✓ ≥ ${result.guardrail.thresholdPct}%` : `✗ below ${result.guardrail.thresholdPct}%`}
+                {result.guardrail.passed ? `✓ ≥ ${result.guardrail.thresholdPct}%` : `✗ below ${result.guardrail.thresholdPct}%`} · modeled
               </span>
             </div>
           </>

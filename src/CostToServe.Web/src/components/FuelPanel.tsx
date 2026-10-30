@@ -73,6 +73,7 @@ export function FuelPanel({ dashboard, dieselShift, duration, onShift, onDuratio
       </ul>
 
       <h3>What-if: diesel change</h3>
+      <p className="muted small">Added to this week's price, which already includes the Oct 19 jump.</p>
       <div className="presets">
         {dashboard.presets.map((p) => (
           <button key={p.id} title={p.description} onClick={() => onPreset(p.dieselShift, p.durationWeeks)}>

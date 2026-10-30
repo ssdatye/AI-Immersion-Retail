@@ -273,7 +273,7 @@ The 88% offset is network-wide, against the +$0.50/gal, 13-week shock.
 ### Agent evaluations
 
 ```bash
-./scripts/run-evals.sh                  # 27 questions as Dana and Luis, Foundry judges, report
+./scripts/run-evals.sh                  # 35 questions as Dana and Luis, Foundry judges, report
 ./scripts/run-evals.sh --skip-foundry   # deterministic checks only
 ```
 
@@ -396,3 +396,27 @@ the reference data folder. The supplied ZIP is byte-identical apart from macOS m
 "Confidential - Internal Only" sensitivity label, so it stays local and git-ignored; the same
 data is in `data/seed` as CSVs. Each folder has a
 `SHA256SUMS` manifest; check with `shasum -a 256 -c SHA256SUMS`.
+
+### Data review
+
+A review on October 30, 2026 checked the seed for consistency and for a credible demo. The seed is
+the approved reference baseline, so no seed file changed; three presentation fixes were made instead.
+
+| Area | Finding |
+|---|---|
+| Consistency | Every row's cost components add up to its cost per order; orders match across tables; orders per route and miles per order recompute from routes and miles; no gaps, zeros or stray values (42 days, 20 zones, 4 delivery types) |
+| Scale and mix | About 9.1M orders and $66M delivery cost a week; Pickup 35-39%, Shipped 30-32%, Same-day 21-22%, Express 10-11% in every region |
+| Cost per order | Pickup $3.23, Shipped about $6.40, Same-day $10-12, Express $15-17; rural Express about $27, urban about $12 |
+| Story | Southeast Express +9.3% week over week ($15.56 to $17.01): 56.7% fuel, 33.5% route density, 9.8% split shipments; only the diesel week (Oct 19-25) moves |
+| Diesel | $3.66-4.20/gal before the jump (West highest), +$0.40-0.47 from Oct 19; the 13-week outlook eases from $4.17 (base) |
+| Actions | Each saving recomputes from its levers (for example A5's $21K a week is Carrier B's 1.2-point overcharge) |
+
+Known simplifications, stated when asked: split-shipment rates are about 6% for every delivery
+type, weekday volumes are nearly flat, pilot zones (1-3) are denser than control zones (4-7)
+so the readout compares changes, not levels, and "Express within 3 hours" is a modeled share
+where 100% means today's routing (the reference engine), not delivery telemetry.
+
+Presentation fixes: the outcomes bar marks Express within 3 hours as modeled and explains it
+on hover; the diesel what-if says it adds to this week's price, which already includes the
+Oct 19 jump; and the presets say "another" (for example another +$0.45/gal if the refinery
+outage drags on), so they do not double-count the jump.

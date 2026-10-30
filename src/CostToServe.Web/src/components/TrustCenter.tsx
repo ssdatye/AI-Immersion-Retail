@@ -105,6 +105,7 @@ function CaseList({ ev }: { ev: EvaluationSummary }) {
                   <td className="nowrap">{name(c.persona)}</td>
                   <td>
                     <span className="case-toggle">{isOpen ? "▾" : "▸"}</span> {c.question}
+                    {c.studioSettings && <span className="muted small"> · sent with the studio's settings</span>}
                   </td>
                   <td>
                     {c.tools.map((t, i) => (
@@ -129,6 +130,11 @@ function CaseList({ ev }: { ev: EvaluationSummary }) {
                   <tr className="case-detail">
                     <td />
                     <td colSpan={6}>
+                      {c.studioSettings && (
+                        <div className="muted small">
+                          <b>Studio settings sent as context:</b> {c.studioSettings}
+                        </div>
+                      )}
                       {c.expectation && (
                         <div>
                           <b>Expected:</b> {c.expectation}

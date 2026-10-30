@@ -1,10 +1,15 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using CostToServe.Core.Model;
 
 namespace CostToServe.Evals;
 
-/// <summary>A decision logged before the question is asked, to put the demo in a known state.</summary>
-public sealed record SetupDecision(string Persona, string Action, string Decision, string? Region, double? Setting, string? Reason);
+/// <summary>
+/// A decision logged before the question is asked, to put the demo in a known state. With decision "package",
+/// the persona creates and proposes a custom package from <see cref="Name"/> and <see cref="Levers"/> instead.
+/// </summary>
+public sealed record SetupDecision(
+    string Persona, string Action, string Decision, string? Region, double? Setting, string? Reason, string? Name = null, Levers? Levers = null);
 
 /// <summary>A tool expectation: one call, or any one of several calls.</summary>
 public sealed record ToolExpectation(string? Name, JsonObject? Args, IReadOnlyList<ToolExpectation>? AnyOf)
@@ -17,7 +22,8 @@ public sealed record ToolExpectation(string? Name, JsonObject? Args, IReadOnlyLi
 /// <summary>Numbers the answer must (or must not) contain, read from a tool result computed by the engine.</summary>
 public sealed record NumberSource(string Tool, JsonObject Args, string? As, IReadOnlyList<string> Fields);
 
-public sealed record DecisionExpectation(bool Recorded, string? Action, string? Decision, string? Region, double? Setting);
+/// <summary>The decision a case expects; <see cref="Levers"/> also requires a custom package with exactly those levers.</summary>
+public sealed record DecisionExpectation(bool Recorded, string? Action, string? Decision, string? Region, double? Setting, Levers? Levers = null);
 
 /// <summary>One evaluation case from evals/dataset.jsonl.</summary>
 public sealed record EvalCase(
@@ -74,7 +80,9 @@ public sealed record EvalCase(
         (o["expected_numbers"] as JsonArray ?? []).Select(ParseSource).ToArray(),
         (o["absent_numbers"] as JsonArray ?? []).Select(ParseSource).ToArray(),
         o["expected_decision"] is JsonObject d
-            ? new DecisionExpectation((bool?)d["recorded"] ?? false, (string?)d["action"], (string?)d["decision"], (string?)d["region"], (double?)d["setting"])
+            ? new DecisionExpectation(
+                (bool?)d["recorded"] ?? false, (string?)d["action"], (string?)d["decision"], (string?)d["region"], (double?)d["setting"],
+                d["levers"]?.Deserialize<Levers>(Json))
             : null,
         (string?)o["notes"]);
 

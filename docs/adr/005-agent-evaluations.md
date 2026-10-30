@@ -7,7 +7,7 @@ status: Accepted
 
 ## Context
 
-Increment 6 adds a repeatable evaluation of the agent: 20 to 30 demo questions with expected tool calls and numbers, scored by evaluators, with a report. The demo's rule is that numbers come from tools, so the evaluation must check numbers against the cost engine, not only ask a model whether the answer looks right.
+Increment 6 adds a repeatable evaluation of the agent: 20 to 40 demo questions with expected tool calls and numbers, scored by evaluators, with a report. The demo's rule is that numbers come from tools, so the evaluation must check numbers against the cost engine, not only ask a model whether the answer looks right.
 
 ## Options considered
 
@@ -33,3 +33,7 @@ The owner chose B.
 * The tool-call accuracy judge scores down calls that the tools refuse by design. The report marks these as expected refusals instead of hiding the judge's result.
 * Runs go to the model directly, not through APIM, because they run locally with the developer's sign-in; the agent code and model are the same.
 * Run folders hold full answers and tool results and are git-ignored; only the generated report is committed. The Foundry portal link is printed, not saved, because it contains subscription and resource IDs.
+
+## Revision (October 30, 2026)
+
+The golden set was revised to 35 cases to match the demo as it now runs: the studio's question chips word for word, the "Ask the agent about these changes" message with its settings context, custom packages (ADR 007), what is waiting for Finance, a question without data (a fuel forecast) and a prompt-injection attempt. The runner gained a package store per case, package setup steps and a lever check for package proposals, and records a question blocked by the content filter as a refusal by policy. The revision found seven agent problems, fixed in the instructions or by returning the needed figure from a tool; see [docs/evals/README.md](../evals/README.md#revision-of-october-30-2026).

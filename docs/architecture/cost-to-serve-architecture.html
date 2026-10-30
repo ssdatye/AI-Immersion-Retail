@@ -52,7 +52,7 @@ nav ol{columns:2;font-size:14px}
 <div class="kpis">
 <div class="kpi"><b>≈ $76–95/mo</b>Demo as built (APIM and the App Service plan are $74 of it)</div>
 <div class="kpi"><b>0 secrets</b>Managed identity and Entra tokens on every hop</div>
-<div class="kpi"><b>27/27 eval cases</b>Agent evaluation: deterministic checks pass; Foundry judges pass except expected refusals. 148 automated tests</div>
+<div class="kpi"><b>35/35 eval cases</b>Agent evaluation: deterministic checks pass; Foundry judges pass except expected refusals. 187 automated tests</div>
 <div class="kpi"><b>$21.8K/mo</b>Production run estimate, carried over from v1.0 (not re-priced)</div>
 </div>
 
@@ -60,7 +60,7 @@ nav ol{columns:2;font-size:14px}
 <table>
 <tr><th>Area</th><th>Version 1.0 said</th><th>As built</th><th>Why it changed</th></tr>
 <tr><td>Front end</td><td>Vite with React or Preact, or vanilla JS, served by the API</td><td class="ok">As designed: Vite 8, React 19, TypeScript, built into the API's <code>wwwroot</code></td><td>Typed state for a fairly rich UI (decision workflow, chat, confirmations)</td></tr>
-<tr><td>Agent</td><td>MAF agent on App Service with tools for cost per order, scenario, guardrail and decision log</td><td class="ok">As designed, plus two tools: <code>get_action_playbook</code> and <code>get_execution_results</code> (seven in total)</td><td>The agent needs the action list and the pilot results to answer the walkthrough questions</td></tr>
+<tr><td>Agent</td><td>MAF agent on App Service with tools for cost per order, scenario, guardrail and decision log</td><td class="ok">As designed, plus two tools: <code>get_action_playbook</code> and <code>get_execution_results</code>, then <code>propose_package</code> (eight in total)</td><td>The agent needs the action list and the pilot results to answer the walkthrough questions</td></tr>
 <tr><td>API gateway</td><td>None in the demo; APIM only in production</td><td class="warn">One APIM Developer instance hosts two APIs: the studio front gate and the AI gateway</td><td>The owner asked for the reference topology (MafTracingPoc), including the AI gateway. One instance keeps cost down (ADR 000)</td></tr>
 <tr><td>Sign-in</td><td>Easy Auth or MSAL; app roles</td><td class="ok">MSAL in the browser; the API validates the token and the app roles</td><td>Works the same locally and on Azure; role and region checks are testable code (ADR 003)</td></tr>
 <tr><td>Directory</td><td>A non-customer dev tenant</td><td class="warn">The owner's default directory; two demo users who must change their password at first sign-in</td><td>No separate tenant was available. MFA is recommended but not enforced (risk 11)</td></tr>
@@ -70,7 +70,7 @@ nav ol{columns:2;font-size:14px}
 <tr><td>Key Vault</td><td>Holds secrets</td><td class="ok">Provisioned with RBAC; empty</td><td>There are no secrets to hold</td></tr>
 <tr><td>Observability</td><td>App Insights</td><td class="ok">OpenTelemetry traces and logs from the app, and APIM traces, in one App Insights resource; both send with managed identity</td><td>One trace from the browser request through the tools and the model call</td></tr>
 <tr><td>Demo safety</td><td>Scripted fallback, B2 with Always On</td><td class="warn">B2 with Always On is built. The scripted fallback is not built yet (Increment 7)</td><td>Planned with the run-book</td></tr>
-<tr><td>Evaluations</td><td>Not covered</td><td class="ok">Built (Increment 6): 27 questions as Dana and Luis, deterministic checks in .NET and Foundry judges in an isolated project</td><td>Proves the "numbers come from tools" rule and the decision rules; found and fixed two agent issues</td></tr>
+<tr><td>Evaluations</td><td>Not covered</td><td class="ok">Built (Increment 6, revised Oct 30): 35 questions as Dana and Luis, deterministic checks in .NET and Foundry judges in an isolated project</td><td>Proves the "numbers come from tools" rule and the decision rules; found and fixed nine agent issues</td></tr>
 <tr><td>Cost</td><td>About $76/month</td><td class="warn">About $76–95/month</td><td>APIM adds $48; model tokens cost less than v1.0 assumed</td></tr>
 </table>
 <p class="sub">Out of scope by decision: Teams alerts and the scheduled 6:00 a.m. run shown in the reference walkthrough.</p>
@@ -318,7 +318,7 @@ sequenceDiagram
 <li><b>Chat transcripts:</b> each turn (question, answer, tools used, trace ID) goes to Cosmos <code>threads</code>, ready for evaluation datasets.</li>
 <li><b>Trust Center:</b> a studio tab maps the five Frontier tests and four gates to their proof in the demo, then shows the acceptance tests (the last evaluation run, with every question, answer and number source, and a link to the run in Foundry), this session's live evidence for the caller's own answers, the span timeline of the latest answer (request, agent, model, tool; the time spent waiting for a person's confirmation is shown separately) and the controls in force, with links to Foundry and Application Insights. Under every answer, a receipt traces each quoted number to the tool field it came from, using the same check as the evaluation (<code>NumberEvidence</code>), or shows a refusal by policy or a confirmed decision. Session data is in memory per instance; Application Insights stays the record. See ADR 006.</li>
 <li><b>Tests:</b> 144 .NET tests cover engine parity (472 golden cases from the reference HTML), the demo anchors (Southeast Express $15.56 to $17.01; +$0.50 for 13 weeks ≈ $28.2M; A1 + A2 offset ≈ 88%), tool scope, the decision workflow by role and region, the API, the Trust Center and live evidence, and the evaluation checks. 19 web tests cover commands, levers, waiting items and evidence receipts. No unit test calls the model.</li>
-<li><b>Agent evaluation:</b> <code>./scripts/run-evals.sh</code> asks 27 questions as Dana and Luis through the studio's agent code. A .NET runner checks tool selection, numbers against the engine, that every quoted number comes from a tool, and the decision rules. The same turns go to Foundry judges (task adherence, tool-call accuracy, intent resolution, groundedness) in the isolated <code>proj-evals</code> project. Latest result: 27 of 27 cases pass the deterministic checks; the only judge failures are tool calls the tools refused by design. See <code>docs/evals/report.md</code> and ADR 005.</li>
+<li><b>Agent evaluation:</b> <code>./scripts/run-evals.sh</code> asks 35 questions as Dana and Luis through the studio's agent code. A .NET runner checks tool selection, numbers against the engine, that every quoted number comes from a tool, and the decision rules. The same turns go to Foundry judges (task adherence, tool-call accuracy, intent resolution, groundedness) in the isolated <code>proj-evals</code> project. Latest result: 35 of 35 cases pass the deterministic checks; the only judge failures are tool calls the tools refused by design. See <code>docs/evals/report.md</code> and ADR 005.</li>
 </ul>
 
 <h2 id="s8">8. Operations</h2>
@@ -400,7 +400,7 @@ flowchart TB
 <tr><td>Edge</td><td>APIM front gate, public endpoint, App Service open only to APIM</td><td>Front Door Premium + WAF, Private Link to APIM and the app</td></tr>
 <tr><td>Gateway</td><td>APIM Developer: front gate and AI gateway</td><td>APIM Standard v2 (SLA, VNet): front gate, AI gateway, tools API for other channels, TMS/OMS write-back</td></tr>
 <tr><td>Identity</td><td>Default directory, two demo users, app roles, region map in app settings</td><td>Walmart Entra; groups mapped to roles and regions; Conditional Access; PIM for admins</td></tr>
-<tr><td>Agent</td><td>MAF agent in the studio process, seven tools</td><td>Same pattern. Add specialist agents (market, operations) as MAF workflows. Add a Foundry hosted agent only for Teams or Microsoft 365 channels</td></tr>
+<tr><td>Agent</td><td>MAF agent in the studio process, eight tools</td><td>Same pattern. Add specialist agents (market, operations) as MAF workflows. Add a Foundry hosted agent only for Teams or Microsoft 365 channels</td></tr>
 <tr><td>Model</td><td><code>gpt-4.1-mini</code>, pay per token, 150K TPM (30K for the app through the gateway)</td><td><code>gpt-4.1</code> for reasoning and <code>gpt-4.1-mini</code> for routing; Data Zone Standard if residency requires; PTU if usage is steady</td></tr>
 <tr><td>Cost facts</td><td>Text copy of ten CSVs in SQL, loaded at startup</td><td>Fabric pipelines from live sources into SQL marts; region filtering also enforced by SQL row-level security</td></tr>
 <tr><td>Decisions</td><td>Per region in Cosmos serverless; read through</td><td>Cosmos autoscale; change feed into an immutable audit store; write-back to TMS/OMS through APIM after approval</td></tr>

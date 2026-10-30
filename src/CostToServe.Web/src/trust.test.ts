@@ -15,6 +15,10 @@ describe("policyNote", () => {
     expect(policyNote([{ name: "get_cost_per_order", outcome: "scope_denied", message: "Southeast only" }])).toEqual({ tone: "refused", text: "Southeast only" });
     expect(policyNote([{ name: "log_decision", outcome: "ok", decision: "recorded" }]).tone).toBe("decision");
     expect(policyNote([{ name: "run_scenario", outcome: "ok" }]).tone).toBe("none");
+    expect(policyNote([{ name: "content_safety", outcome: "blocked", message: "Blocked by Azure AI Content Safety" }])).toEqual({
+      tone: "refused",
+      text: "Blocked by Azure AI Content Safety",
+    });
   });
 });
 

@@ -8,6 +8,7 @@ using CostToServe.Agent.Security;
 using CostToServe.Agent.Tools;
 using CostToServe.Core.Data;
 using CostToServe.Core.Engine;
+using CostToServe.Core.Model;
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OpenAI;
@@ -16,7 +17,7 @@ namespace CostToServe.Evals;
 
 /// <summary>
 /// Runs one case against the real agent code: same instructions, same tools, same persona scope and
-/// the same model deployment as the studio. Each case gets its own in-memory decision log.
+/// the same model deployment as the studio. Each case gets its own in-memory decision log and package store.
 /// </summary>
 public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAIClient client, FoundryOptions foundry)
 {
@@ -26,10 +27,13 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
     {
         var caller = DemoPersonas.Parse(c.Persona);
         var log = new InMemoryDecisionLog();
+        var packages = new InMemoryPackageStore();
         foreach (var s in c.Setup)
         {
-            var result = await ToolsFor(DemoPersonas.Parse(s.Persona), log, new RecordingConfirmer(true))
-                .LogDecisionAsync(s.Action, s.Decision, s.Reason, s.Setting, s.Region, ct);
+            var setupTools = ToolsFor(DemoPersonas.Parse(s.Persona), log, new RecordingConfirmer(true), packages);
+            var result = string.Equals(s.Decision, "package", StringComparison.OrdinalIgnoreCase)
+                ? await setupTools.ProposePackageAsync(s.Name, s.Reason, s.Levers ?? Levers.None, ct)
+                : await setupTools.LogDecisionAsync(s.Action, s.Decision, s.Reason, s.Setting, s.Region, ct);
             if (JsonSerializer.SerializeToNode(result, AIJsonUtilities.DefaultOptions)?["status"]?.GetValue<string>() != "recorded")
             {
                 throw new InvalidOperationException($"Case {c.Id}: setup step {s.Action} {s.Decision} was not recorded.");
@@ -39,18 +43,29 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
         var setupCount = log.ReadAll().Count;
 
         // Expected numbers come from the engine through the same tools, in the state before the question.
-        var expected = await ResolveAsync(c.ExpectedNumbers, caller, log, ct);
-        var absent = await ResolveAsync(c.AbsentNumbers, caller, log, ct);
+        var expected = await ResolveAsync(c.ExpectedNumbers, caller, log, packages, ct);
+        var absent = await ResolveAsync(c.AbsentNumbers, caller, log, packages, ct);
 
         var calls = new List<ToolCallRecord>();
         var confirmer = new RecordingConfirmer(c.Confirm);
-        var tools = ToolsFor(caller, log, confirmer);
+        var tools = ToolsFor(caller, log, confirmer, packages);
         var agent = CostToServeAgentFactory.Create(client, foundry, tools, data, f => new RecordingFunction(f, calls));
         var session = await agent.CreateSessionAsync(ct);
         var watch = Stopwatch.StartNew();
-        var response = await agent.RunAsync(c.Query, session, cancellationToken: ct);
+        AgentResponse? response = null;
+        string? blockedBy = null;
+        try
+        {
+            response = await agent.RunAsync(c.Query, session, cancellationToken: ct);
+        }
+        catch (System.ClientModel.ClientResultException ex) when (ContentSafety.IsBlocked(ex))
+        {
+            // Blocked by the platform before the agent ran; the studio shows the same answer.
+            blockedBy = ContentSafety.ToolName;
+        }
+
         watch.Stop();
-        var text = response.Text ?? string.Empty;
+        var text = blockedBy is null ? response?.Text ?? string.Empty : ContentSafety.Answer;
 
         var instructions = CostToServeAgentFactory.BuildInstructions(caller, data);
         var quoted = EvalChecks.ExtractNumbers(text);
@@ -64,7 +79,7 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
             ["tool_selection"] = ToolSelection(c, calls),
             ["numeric_accuracy"] = NumericAccuracy(expected, absent, quoted),
             ["grounded_numbers"] = Grounded(quoted, sources, NumberEvidence.Trace(text, calls.Select(call => (call.Name, call.Result)), c.Query, instructions)),
-            ["decision"] = Decision(c.ExpectedDecision, log.ReadAll().Skip(setupCount).ToArray(), confirmer.Requests.Count),
+            ["decision"] = Decision(c.ExpectedDecision, log.ReadAll().Skip(setupCount).ToArray(), confirmer.Requests.Count, packages),
         };
         var applicable = checks.Select(kv => kv.Value?["result"]?.GetValue<string>()).Where(r => r is "pass" or "fail").ToArray();
 
@@ -83,26 +98,27 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
                 ["outcome"] = call.Outcome,
             }).ToArray()),
             ["confirmation_requests"] = confirmer.Requests.Count,
+            ["blocked_by"] = blockedBy,
             ["checks"] = checks,
             ["result"] = applicable.Length > 0 && applicable.All(r => r == "pass") ? "pass" : applicable.Length == 0 ? "n/a" : "fail",
             ["duration_ms"] = watch.ElapsedMilliseconds,
-            ["input_tokens"] = response.Usage?.InputTokenCount,
-            ["output_tokens"] = response.Usage?.OutputTokenCount,
+            ["input_tokens"] = response?.Usage?.InputTokenCount,
+            ["output_tokens"] = response?.Usage?.OutputTokenCount,
             ["foundry"] = FoundryRow(c, instructions, text, calls, tools),
         };
     }
 
-    private CostToServeTools ToolsFor(CallerContext caller, IDecisionLog log, IDecisionConfirmer confirmer) =>
-        new(data, _engine, caller, log, confirmer, actions: actions);
+    private CostToServeTools ToolsFor(CallerContext caller, IDecisionLog log, IDecisionConfirmer confirmer, IPackageStore packages) =>
+        new(data, _engine, caller, log, confirmer, actions: actions, packages: packages);
 
     private async Task<List<(string Label, double Value)>> ResolveAsync(
-        IReadOnlyList<NumberSource> sources, CallerContext caller, IDecisionLog log, CancellationToken ct)
+        IReadOnlyList<NumberSource> sources, CallerContext caller, IDecisionLog log, IPackageStore packages, CancellationToken ct)
     {
         var values = new List<(string, double)>();
         foreach (var src in sources)
         {
             var as_ = src.As is null ? caller : DemoPersonas.Parse(src.As);
-            var function = ToolsFor(as_, log, new RecordingConfirmer(false)).Create().Cast<AIFunction>().Single(f => f.Name == src.Tool);
+            var function = ToolsFor(as_, log, new RecordingConfirmer(false), packages).Create().Cast<AIFunction>().Single(f => f.Name == src.Tool);
             var args = new AIFunctionArguments(src.Args.ToDictionary(kv => kv.Key, kv => (object?)JsonSerializer.SerializeToElement(kv.Value)));
             var result = JsonSerializer.SerializeToNode(await function.InvokeAsync(args, ct), AIJsonUtilities.DefaultOptions);
             if (result?["error"] is not null)
@@ -185,7 +201,7 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
         };
     }
 
-    private static JsonObject Decision(DecisionExpectation? expected, IReadOnlyList<DecisionEntry> added, int requests)
+    private static JsonObject Decision(DecisionExpectation? expected, IReadOnlyList<DecisionEntry> added, int requests, IPackageStore packages)
     {
         var logged = new JsonArray(added.Select(e => (JsonNode)new JsonObject
         {
@@ -207,14 +223,16 @@ public sealed class EvalRunner(SeedDataSet data, ActionCatalog actions, OpenAICl
             string.Equals(e.ActionId, expected.Action, StringComparison.OrdinalIgnoreCase)
             && (expected.Decision is null || string.Equals(e.Decision.Verb(), expected.Decision, StringComparison.OrdinalIgnoreCase))
             && (expected.Region is null || string.Equals(e.Region, expected.Region, StringComparison.OrdinalIgnoreCase))
-            && (expected.Setting is null || e.Setting is { } s && Math.Abs(s - expected.Setting.Value) < 1e-6);
+            && (expected.Setting is null || e.Setting is { } s && Math.Abs(s - expected.Setting.Value) < 1e-6)
+            && (expected.Levers is null || packages.ReadAll().Any(p => p.Id == e.ActionId && p.Levers == expected.Levers));
 
         var pass = expected.Recorded ? added.Count == 1 && Ok(added[0]) : added.Count == 0;
         return new JsonObject
         {
             ["result"] = pass ? "pass" : "fail",
             ["expected"] = expected.Recorded
-                ? $"{expected.Decision} {expected.Action}{(expected.Region is null ? "" : " for " + expected.Region)}{(expected.Setting is null ? "" : $" at {expected.Setting}")}"
+                ? $"{expected.Decision} {expected.Action}{(expected.Region is null ? "" : " for " + expected.Region)}{(expected.Setting is null ? "" : $" at {expected.Setting}")}" +
+                  (expected.Levers is null ? "" : $" with levers {ActionPackage.Describe(expected.Levers)}")
                 : "nothing logged",
             ["confirmation_requests"] = requests,
             ["logged"] = logged,

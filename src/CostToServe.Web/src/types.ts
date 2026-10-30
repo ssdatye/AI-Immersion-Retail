@@ -259,6 +259,8 @@ export interface EvaluationCase {
   persona: string;
   category: string;
   question: string;
+  /** Studio settings sent with the question as context, as the "Ask the agent about these changes" button does. */
+  studioSettings?: string | null;
   expectation?: string | null;
   answer: string;
   tools: { name: string; outcome: string }[];

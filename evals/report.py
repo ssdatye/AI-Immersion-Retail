@@ -42,11 +42,20 @@ def judge_marks(item: dict | None) -> dict[str, tuple[str, dict]]:
     return marks
 
 
+STUDIO_CONTEXT = "\n\n[Studio settings for reference:"
+
+
+def visible_question(query: str) -> tuple[str, str | None]:
+    """The question as the person typed it, and the studio settings the browser appended as context (if any)."""
+    cut = query.find(STUDIO_CONTEXT)
+    return (query, None) if cut < 0 else (query[:cut], query[cut + len(STUDIO_CONTEXT):].rstrip("]").strip())
+
+
 def expected_refusal(row: dict) -> bool:
     """A call the tools refused (scope, role, workflow or guardrail) or the user declined, in a case whose
     deterministic checks all pass: the agent behaved as designed."""
     declined = row["checks"]["decision"].get("expected") == "nothing logged" and any(c["name"] == "log_decision" for c in row["tool_calls"])
-    refused = any(c["outcome"] != "ok" for c in row["tool_calls"])
+    refused = any(c["outcome"] != "ok" for c in row["tool_calls"]) or bool(row.get("blocked_by"))
     return row["result"] == "pass" and (refused or declined)
 
 
@@ -177,7 +186,7 @@ def main() -> int:
     if not findings:
         lines.append("No failures.")
     for r, notes in findings:
-        lines += [f"### `{r['id']}` ({r['persona'].capitalize()})", "", f"Question: {r['query']}", ""]
+        lines += [f"### `{r['id']}` ({r['persona'].capitalize()})", "", f"Question: {visible_question(r['query'])[0]}", ""]
         lines += [f"* {cell(n)}" for n in notes]
         lines.append("")
 
@@ -185,8 +194,8 @@ def main() -> int:
         "## How the run works",
         "",
         "* The runner (`evals/CostToServe.Evals`) asks each question as Dana or Luis through the studio's own agent code: the same "
-        "instructions, the same seven tools with the same scope rules, and the same model deployment. Each case starts from its own "
-        "in-memory decision log, so cases never affect each other or the demo.",
+        "instructions, the same eight tools with the same scope rules, and the same model deployment. Each case starts from its own "
+        "in-memory decision log and package store, so cases never affect each other or the demo.",
         "* Expected numbers are not typed by hand. The runner calls the same tools directly before the question is asked and reads "
         "the fields listed in the dataset, so the expectations follow the engine and the seed data.",
         "* A quoted number matches when it equals the engine's value at the precision written (one unit of the last digit), so "
@@ -210,14 +219,17 @@ def case_row(row: dict, item: dict | None) -> dict:
     """One acceptance test as the Trust Center lists it."""
     marks = judge_marks(item)
     grounded = row["checks"]["grounded_numbers"]
+    question, studio_settings = visible_question(row["query"])
     return {
         "id": row["id"],
         "persona": row["persona"],
         "category": row["category"],
-        "question": row["query"],
+        "question": question,
+        "studioSettings": studio_settings,
         "expectation": row.get("notes"),
         "answer": row["response_text"],
-        "tools": [{"name": c["name"], "outcome": c["outcome"]} for c in row["tool_calls"]],
+        "tools": [{"name": c["name"], "outcome": c["outcome"]} for c in row["tool_calls"]]
+        + ([{"name": row["blocked_by"], "outcome": "blocked"}] if row.get("blocked_by") else []),
         "checks": {key: row["checks"][key]["result"] for key in CHECKS},
         "judges": {key: marks[key][0] for key in JUDGES if key in marks} if item else None,
         "result": row["result"],

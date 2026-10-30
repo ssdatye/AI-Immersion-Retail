@@ -80,7 +80,7 @@ public sealed class EvalChecksTests
 
         var cases = EvalCase.Load(path);
 
-        Assert.InRange(cases.Count, 20, 30);
+        Assert.InRange(cases.Count, 20, 40);
         Assert.Contains(cases, c => c.Persona == "dana");
         Assert.Contains(cases, c => c.Persona == "luis");
         Assert.All(cases, c => Assert.True(c.ExpectedTools.Count > 0 || c.ForbidTools.Count > 0 || c.ExpectedDecision is not null || c.Notes is not null, c.Id));

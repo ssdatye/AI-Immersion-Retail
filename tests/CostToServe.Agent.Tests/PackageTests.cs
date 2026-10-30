@@ -39,6 +39,23 @@ public sealed class PackageTests
     }
 
     [Fact]
+    public async Task Playbook_lists_only_what_is_waiting_for_the_caller()
+    {
+        await ToolsFor(DemoPersonas.Luis).LogDecisionAsync("A2", "propose", null, null, null, default);
+        await ToolsFor(DemoPersonas.Luis).ProposePackageAsync("Southeast fuel squeeze", null, Squeeze, default);
+        await ToolsFor(DemoPersonas.Luis).LogDecisionAsync("A6", "propose", null, null, null, default);
+        await ToolsFor(DemoPersonas.Dana).LogDecisionAsync("A6", "approve", null, null, "Southeast", default);
+
+        var forDana = Json(ToolsFor(DemoPersonas.Dana).GetActionPlaybook(null)).GetProperty("waitingForYou");
+        var forLuis = Json(ToolsFor(DemoPersonas.Luis).GetActionPlaybook(null)).GetProperty("waitingForYou");
+
+        // Finance decides proposals only; not-reviewed actions wait for regional ops, and approvals wait to be executed.
+        Assert.Equal(["A2", "P-SE-01"], forDana.EnumerateArray().Select(w => w.GetProperty("actionId").GetString()));
+        Assert.All(forDana.EnumerateArray(), w => Assert.Equal("Southeast", w.GetProperty("region").GetString()));
+        Assert.Equal(["A6"], forLuis.EnumerateArray().Select(w => w.GetProperty("actionId").GetString()));
+    }
+
+    [Fact]
     public async Task Nothing_is_stored_when_the_person_declines()
     {
         _confirmer.Answer = false;

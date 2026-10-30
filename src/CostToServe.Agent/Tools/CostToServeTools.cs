@@ -317,6 +317,9 @@ public sealed class CostToServeTools(
                 ScenarioQuarterCostUsd = Math.Round(s.ScenarioQuarterCost),
                 NetOperatingIncomeImpactUsd = Math.Round(s.NetOperatingIncomeImpact),
                 OffsetOfFuelShockPct = s.OffsetShare is { } offset ? Pct(offset) : (double?)null,
+                // Weekly differences, so answers never need to subtract the weekly costs below.
+                FuelShockWeeklyCostUsd = Math.Round(s.ShockWeeklyCost - s.BaselineWeeklyCost),
+                LeversWeeklySavingUsd = Math.Round(s.BaselineWeeklyCost - s.LeversWeeklyCost),
                 WeeklyCostUsd = new
                 {
                     Baseline = Math.Round(s.BaselineWeeklyCost),
@@ -479,9 +482,34 @@ public sealed class CostToServeTools(
                     .Select(pk => Row(pk.Id, pk.Name, pk.Summary, "Not rated", "Fulfillment Finance",
                         "Keep under-3-hour promise for at least 80% of Express orders", [data.CanonicalRegion(pk.Region)], pk)))
                 .ToArray();
+
+            // What the caller has to act on now, by the workflow: finance decides Proposed items, regional ops executes Approved ones.
+            var waitingStatus = caller.Role == DemoRole.FinanceAnalyst ? DecisionWorkflow.Status(DecisionKind.Propose) : DecisionWorkflow.Status(DecisionKind.Approve);
+            var waiting = data.Playbook.Select(p => (Id: p.ActionId, Name: p.Action, Regions: visible))
+                .Concat(packageList.Select(pk => (Id: pk.Id, Name: pk.Name, Regions: new[] { data.CanonicalRegion(pk.Region) })))
+                .SelectMany(x => x.Regions
+                    .Where(r => scopedRegion is null || r == scopedRegion)
+                    .Select(r => RegionDecision(x.Id, catalog.Find(x.Id), r, latest))
+                    .Where(d => d.Status == waitingStatus)
+                    .Select(d => new
+                    {
+                        ActionId = x.Id,
+                        Action = x.Name,
+                        d.Region,
+                        d.Status,
+                        d.Setting,
+                        d.AvailableDecisions,
+                        // The saving in this region only, at the decided setting (the row's saving may cover several regions).
+                        EstimatedWeeklySavingUsd = d.Levers is null ? (double?)null : Math.Round(engine.WeeklySaving(d.Levers, [d.Region])),
+                    }))
+                .ToArray();
             return new
             {
                 DecisionRegion = scopedRegion,
+                WaitingForYou = waiting,
+                WaitingForYouNote = caller.Role == DemoRole.FinanceAnalyst
+                    ? "Proposals the caller (finance) has to approve or reject. Nothing else is waiting for finance."
+                    : "Approved actions the caller (regional ops) has to execute. Not reviewed actions can be proposed.",
                 SavingsScope = scopedRegion ?? "Network",
                 SavingsNote = "Each saving is for that action alone, at current-week volumes, using each region's decided setting. " +
                               "Savings are not additive; use run_scenario to model actions together. Decisions are per region: " +

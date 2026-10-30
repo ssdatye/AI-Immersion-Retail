@@ -297,6 +297,26 @@ public static class StudioEndpoints
                 RecordFailure();
                 channel.Writer.TryWrite(new("error", new { message = "Could not get an Entra token for the model. Run 'az login'." }));
             }
+            catch (ClientResultException ex) when (ContentSafety.IsBlocked(ex))
+            {
+                // The platform's content filter stopped the prompt before the agent ran: a refusal by policy, not an error.
+                channel.Writer.TryWrite(new("delta", new { text = ContentSafety.Answer }));
+                var blocked = new { name = ContentSafety.ToolName, outcome = ContentSafety.Outcome, message = ContentSafety.Message, decision = (string?)null };
+                channel.Writer.TryWrite(new("evidence", new
+                {
+                    quoted = 0,
+                    traced = 0,
+                    unsupported = Array.Empty<string>(),
+                    numbers = Array.Empty<object>(),
+                    tools = new[] { blocked },
+                    durationMs = watch.ElapsedMilliseconds,
+                    traceId,
+                }));
+                s.Trust.Add(new TrustTurn(
+                    caller.Id, caller.DisplayName, DateTimeOffset.UtcNow, VisibleQuestion(message),
+                    [(ContentSafety.ToolName, ContentSafety.Outcome, ContentSafety.Message, null)],
+                    new AnswerEvidence([]), watch.ElapsedMilliseconds, inputTokens, outputTokens, traceId, Errored: false));
+            }
             catch (ClientResultException ex)
             {
                 // The message is service-controlled; report only the status.
@@ -416,12 +436,13 @@ public static class StudioEndpoints
             Events = data.MarketEvents.Where(e => e.Region == "All" || caller.CanSee(e.Region)).OrderByDescending(e => e.Date)
                 .Select(e => new { Date = e.Date.ToString("yyyy-MM-dd"), e.EventType, e.Region, Effect = e.ExpectedDieselEffectUsdPerGallon, e.Credibility }),
             CostPerOrder = costPerOrder,
-            // Presets and suggested questions from the reference demo (docs/reference).
+            // Presets and suggested questions from the reference demo (docs/reference). Diesel changes add to this
+            // week's price, which already includes the Oct 19 jump, so the descriptions say "another".
             Presets = new[]
             {
-                new { Id = "calm", Label = "Calm market", DieselShift = -0.15, DurationWeeks = 13, Description = "Diesel eases about $0.15/gal for the quarter." },
-                new { Id = "refinery", Label = "Refinery outage", DieselShift = 0.45, DurationWeeks = 6, Description = "About +$0.45/gal for 6 weeks (high-credibility sources)." },
-                new { Id = "conflict", Label = "Shipping disruption", DieselShift = 0.8, DurationWeeks = 10, Description = "About +$0.80/gal for 10 weeks (medium credibility; developing)." },
+                new { Id = "calm", Label = "Calm market", DieselShift = -0.15, DurationWeeks = 13, Description = "Diesel eases about $0.15/gal from this week's price for the quarter." },
+                new { Id = "refinery", Label = "Refinery outage", DieselShift = 0.45, DurationWeeks = 6, Description = "Another +$0.45/gal for 6 weeks if the Southeast refinery outage drags on (high-credibility sources)." },
+                new { Id = "conflict", Label = "Shipping disruption", DieselShift = 0.8, DurationWeeks = 10, Description = "Another +$0.80/gal for 10 weeks if the crude-shipping disruption escalates (stress case; medium credibility)." },
             },
             Suggestions = new[]
             {

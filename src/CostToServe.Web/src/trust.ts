@@ -1,7 +1,7 @@
 import type { AnswerEvidence, EvaluationCase, TraceSpan, TrustTurn } from "./types";
 
-/** Refusal by policy: the tool refused (scope, role, workflow or guardrail), not the model. */
-export const isRefusal = (outcome: string) => outcome === "scope_denied" || outcome === "conflict";
+/** Refusal by policy: a tool refused (scope, role, workflow or guardrail) or the content filter blocked the request, not the model. */
+export const isRefusal = (outcome: string) => outcome === "scope_denied" || outcome === "conflict" || outcome === "blocked";
 
 /** Short, friendly name for a tool field path such as "explain_variance.drivers[0].sharePct". */
 export function sourceLabel(source: string | null): string {

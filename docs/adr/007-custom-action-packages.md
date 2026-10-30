@@ -31,5 +31,5 @@ The owner chose B.
 ## Consequences
 
 * Existing endpoints and their responses are unchanged; playbook rows gain optional package fields, and the chat's `tool` event can now name `propose_package`.
-* The evaluation set (ADR 005) does not yet cover `propose_package`; re-run `./scripts/run-evals.sh` before relying on the summary for this tool.
+* The evaluation set (ADR 005) covers packages: Luis proposing one by chat, Dana approving one, and Dana being refused when she tries to create one.
 * Packages cannot be edited; to change one, Finance rejects it and regional ops proposes a new one.

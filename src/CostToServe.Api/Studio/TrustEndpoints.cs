@@ -69,7 +69,7 @@ public static class TrustEndpoints
                 NumbersQuoted = answered.Sum(t => t.Evidence.Quoted),
                 NumbersTraced = answered.Sum(t => t.Evidence.Traced),
                 NumbersToReview = answered.Sum(t => t.Evidence.Unsupported.Count),
-                RefusedByPolicy = answered.Sum(t => t.Tools.Count(c => c.Outcome is "scope_denied" or "conflict")),
+                RefusedByPolicy = answered.Sum(t => t.Tools.Count(c => c.Outcome is "scope_denied" or "conflict" or ContentSafety.Outcome)),
                 DecisionsByPeople = decisions.Length,
                 AnswersTraced = answered.Count(t => t.TraceId is not null),
                 MedianMs = durations.Length == 0 ? (long?)null : (durations[(durations.Length - 1) / 2] + durations[durations.Length / 2]) / 2,
@@ -82,7 +82,7 @@ public static class TrustEndpoints
                     Answers = everyone.Length,
                     NumbersQuoted = everyone.Sum(t => t.Evidence.Quoted),
                     NumbersTraced = everyone.Sum(t => t.Evidence.Traced),
-                    RefusedByPolicy = everyone.Sum(t => t.Tools.Count(c => c.Outcome is "scope_denied" or "conflict")),
+                    RefusedByPolicy = everyone.Sum(t => t.Tools.Count(c => c.Outcome is "scope_denied" or "conflict" or ContentSafety.Outcome)),
                 },
             },
             Turns = turns.Take(25).Select(t => new
