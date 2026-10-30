@@ -66,16 +66,17 @@ export const OutcomesBar = forwardRef<HTMLElement, Props>(function OutcomesBar(
         )}
       </div>
       <div className="obar-side">
-        <div className={`obar-status ${changes.length ? "pending" : ""}`} role="status">
-          {changes.length === 0 ? (
-            "✓ No model changes waiting for the agent"
-          ) : (
-            <>
-              ✎ {changes.length} model {changes.length === 1 ? "change" : "changes"} not shared with the agent
-              <button type="button" className="primary" onClick={onAskChanges}>
-                Ask the agent about {changes.length === 1 ? "this change" : "these changes"}
-              </button>
-            </>
+        {/* Fixed size: only colour and text change, so nothing below moves. With the model panel open, its footer has the button. */}
+        <div className={`obar-status ${changes.length ? "pending" : ""}`}>
+          <span role="status" key={changes.length ? "pending" : "synced"} className="fade-in">
+            {changes.length === 0
+              ? "✓ The agent has your current model settings"
+              : `✎ ${changes.length} model ${changes.length === 1 ? "change" : "changes"} not shared with the agent${drawer === "model" ? " · ask from the panel" : ""}`}
+          </span>
+          {changes.length > 0 && drawer !== "model" && (
+            <button type="button" className="primary fade-in" onClick={onAskChanges}>
+              Ask the agent
+            </button>
           )}
         </div>
         <div className="obar-buttons">

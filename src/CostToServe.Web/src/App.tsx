@@ -470,31 +470,28 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                 </div>
                 {drawer === "model" && (
                   <div className={`drawer-foot ${changes.length ? "pending" : ""}`}>
-                    <div aria-live="polite">
-                      {changes.length === 0 ? (
-                        <p className="small muted">Changes here are instant and stay with you until you ask the agent about them.</p>
-                      ) : (
-                        <>
-                          <strong>
-                            You changed {changes.length} {changes.length === 1 ? "setting" : "settings"} · not shared with the agent yet
-                          </strong>
-                          <ul>
-                            {changes.map((c) => (
-                              <li key={c.key}>
-                                {c.label}: {c.from} → <strong>{c.to}</strong>
-                              </li>
-                            ))}
-                          </ul>
-                          <div className="drawer-foot-buttons">
-                            <button type="button" className="primary" onClick={askAboutChanges}>
-                              Ask the agent about {changes.length === 1 ? "this change" : "these changes"}
-                            </button>
-                            <button type="button" onClick={undoChanges}>
-                              Undo
-                            </button>
-                          </div>
-                        </>
-                      )}
+                    {/* Same size with or without changes, so the slider being dragged is never covered or moved. */}
+                    <div className="sync-box">
+                      <div aria-live="polite">
+                        <strong key={changes.length ? "pending" : "synced"} className="sync-line fade-in">
+                          {changes.length === 0
+                            ? "✓ The agent has your current settings"
+                            : `✎ You changed ${changes.length} ${changes.length === 1 ? "setting" : "settings"} · not shared with the agent yet`}
+                        </strong>
+                        <p className="sync-detail small" title={changes.map((c) => `${c.label}: ${c.from} → ${c.to}`).join("\n") || undefined}>
+                          {changes.length === 0
+                            ? "Changes here are instant (cost engine, no AI) and stay with you until you ask the agent."
+                            : changes.map((c) => `${c.label}: ${c.from} → ${c.to}`).join("; ")}
+                        </p>
+                      </div>
+                      <div className="drawer-foot-buttons">
+                        <button type="button" className="primary" onClick={askAboutChanges} disabled={changes.length === 0}>
+                          Ask the agent about {changes.length === 1 ? "this change" : changes.length ? "these changes" : "your changes"}
+                        </button>
+                        <button type="button" onClick={undoChanges} disabled={changes.length === 0}>
+                          Undo
+                        </button>
+                      </div>
                     </div>
                     {dashboard.caller.role === "RegionalOps" && (
                       <PackageForm

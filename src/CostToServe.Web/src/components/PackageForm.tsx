@@ -77,19 +77,21 @@ export function PackageForm({ auth, region, levers, onProposed, onOpen }: Props)
             </button>
           </p>
         )}
-        {items.length > 0 && (
-          <button
-            type="button"
-            ref={proposeRef}
-            onClick={() => {
-              setDone(null);
-              setError(null);
-              setOpen(true);
-            }}
-          >
-            📦 Propose {items.length === 1 ? "this lever" : `these ${items.length} levers`} as a package
-          </button>
-        )}
+        {/* Always present, so setting the first lever does not move the panel. */}
+        <button
+          type="button"
+          ref={proposeRef}
+          disabled={items.length === 0}
+          onClick={() => {
+            setDone(null);
+            setError(null);
+            setOpen(true);
+          }}
+        >
+          {items.length === 0
+            ? "📦 Set impact levers to propose them as a package"
+            : `📦 Propose ${items.length === 1 ? "this lever" : `these ${items.length} levers`} as a package`}
+        </button>
       </div>
     );
   }
