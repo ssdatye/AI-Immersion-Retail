@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, streamChat } from "../api";
+import { api, ApiError, failureText, streamChat } from "../api";
 import type { ApiAuth } from "../auth";
 import { COMMAND_HELP, mentionedActions, parseCommand } from "../commands";
 import { toPercent, usd } from "../format";
@@ -109,23 +109,30 @@ export function ChatPanel({
         setBusy(true);
         try {
           const region = command.region ?? decisionRegion;
-          await submitDecision(auth, command.actionId, command.decision, command.reason, command.setting, region);
+          const r = await submitDecision(auth, command.actionId, command.decision, command.reason, command.setting, region);
           addTurns(
             { role: "user", text },
             {
               role: "system",
-              text: `✓ ${command.actionId} ${pastTense(command.decision).toLowerCase()}${
-                command.setting !== undefined ? ` at ${toPercent(command.setting)}%` : ""
-              } for ${region} by you${command.reason ? ` ("${command.reason}")` : ""}. Logged.`,
+              text:
+                r.status === "already_recorded" && r.message
+                  ? `✓ ${r.message}`
+                  : `✓ ${command.actionId} ${pastTense(command.decision).toLowerCase()}${
+                      command.setting !== undefined ? ` at ${toPercent(command.setting)}%` : ""
+                    } for ${region} by you${command.reason ? ` ("${command.reason}")` : ""}. Logged.`,
               actionIds: [command.actionId],
               region,
             },
           );
-          onDecisionLogged();
         } catch (e) {
-          addTurns({ role: "user", text }, { role: "system", text: "Not logged.", error: (e as Error).message });
+          addTurns(
+            { role: "user", text },
+            { role: "system", text: e instanceof ApiError ? "Not logged." : "", error: failureText(e, "Check the status below."), actionIds: [command.actionId] },
+          );
         } finally {
           setBusy(false);
+          // Always reload: after an error or a dropped connection the server may already have moved on.
+          onDecisionLogged();
         }
         return;
     }

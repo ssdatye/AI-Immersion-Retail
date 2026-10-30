@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "../api";
+import { api, failureText } from "../api";
 import type { ApiAuth } from "../auth";
 import { toPercent } from "../format";
 import type { DecisionVerb } from "../commands";
@@ -15,6 +15,12 @@ const STATUS_CLASS: Record<string, string> = {
 
 const PAST: Record<DecisionVerb, string> = { propose: "Proposed", approve: "Approved", reject: "Rejected", execute: "Executed" };
 
+/** The server's answer to a decision: "recorded", or "already_recorded" when the same step was already in place. */
+export interface DecisionOutcome {
+  status: string;
+  message?: string | null;
+}
+
 /** Posts a decision through the same server checks as the actions table. Throws with the server's message. */
 export async function submitDecision(
   auth: ApiAuth,
@@ -23,8 +29,8 @@ export async function submitDecision(
   reason?: string,
   setting?: number,
   region?: string,
-) {
-  await api(auth, "/api/decisions", {
+): Promise<DecisionOutcome> {
+  return api<DecisionOutcome>(auth, "/api/decisions", {
     method: "POST",
     body: { actionId, decision, reason: reason || null, setting: setting ?? null, region: region ?? null },
   });
@@ -70,15 +76,19 @@ export function DecisionStrip({ auth, items, playbook, showRegion, onDecided }: 
     setBusy(true);
     setFeedback(null);
     try {
-      await submitDecision(auth, actionId, decision, why, undefined, region);
-      setFeedback({ text: `✓ ${actionId} ${PAST[decision].toLowerCase()} for ${region} by you.`, error: false });
+      const r = await submitDecision(auth, actionId, decision, why, undefined, region);
+      setFeedback({
+        text: r.status === "already_recorded" && r.message ? `✓ ${r.message}` : `✓ ${actionId} ${PAST[decision].toLowerCase()} for ${region} by you.`,
+        error: false,
+      });
       setRejecting(null);
       setReason("");
-      onDecided();
     } catch (e) {
-      setFeedback({ text: (e as Error).message, error: true });
+      setFeedback({ text: failureText(e), error: true });
     } finally {
       setBusy(false);
+      // Always reload: after an error or a dropped connection the server may already have moved on.
+      onDecided();
     }
   };
 

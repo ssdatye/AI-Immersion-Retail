@@ -189,7 +189,9 @@ existing objects and never resets passwords; `./scripts/teardown-entra.sh` remov
 Each action follows one workflow: Not reviewed → Proposed (regional ops) → Approved or
 Rejected (finance) → Executed (regional ops). Before execution, regional ops can propose a
 revised setting; the approval stays in force until finance approves or declines the
-revision. The actions table shows each action's status
+revision. Repeating the step already in force at the same setting changes nothing and says
+"already recorded" instead of a conflict, and the panel reloads after every attempt, so a
+click whose response was lost shows the real state. The actions table shows each action's status
 and only the buttons valid for you now; out-of-order steps return HTTP 409. Approving applies
 an action to the scenario outcomes. Executing marks it live and adds it to Execution results:
 a modeled pilot readout (Southeast zones 1-3 versus control zones 4-7) with the weekly saving
@@ -400,7 +402,9 @@ decision log, chat transcripts and custom packages; other files are left alone.
 
 `./scripts/reset-demo.sh --target azure` deletes every decision, chat transcript and custom
 package in the demo's Cosmos DB, then restarts the web app so the Trust Center's live view starts fresh, and
-waits until the studio is healthy (about a minute). Add `--no-restart` to skip the restart.
+waits until the studio is healthy (about a minute). The app opens its Cosmos DB and Entra
+connections before it reports healthy, so the first click after a reset is as fast as the
+rest. Add `--no-restart` to skip the restart.
 Seed facts in Azure SQL and the acceptance tests are not changed; reload the facts with
 `./scripts/seed-azure-sql.sh`. For a local run, restart the API yourself to clear the live view.
 

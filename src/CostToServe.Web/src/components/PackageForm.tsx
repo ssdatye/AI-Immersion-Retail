@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { api } from "../api";
+import { api, failureText } from "../api";
 import type { ApiAuth } from "../auth";
 import { leverList } from "../modelSync";
 import type { Levers } from "../types";
@@ -16,11 +16,13 @@ interface Props {
   region: string;
   levers: Levers;
   onProposed: (id: string) => void;
+  /** Reloads decisions, for example after a dropped connection. */
+  onRefresh: () => void;
   onOpen: (id: string) => void;
 }
 
 /** Regional ops bundles the levers they tuned into one named action that Finance decides as a whole. */
-export function PackageForm({ auth, region, levers, onProposed, onOpen }: Props) {
+export function PackageForm({ auth, region, levers, onProposed, onRefresh, onOpen }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(`${region} fuel response`);
   const [reason, setReason] = useState("");
@@ -60,7 +62,8 @@ export function PackageForm({ auth, region, levers, onProposed, onOpen }: Props)
         setError(r.message ?? "The package was not created.");
       }
     } catch (err) {
-      setError((err as Error).message);
+      setError(failureText(err, "Check Decisions before trying again; it may have been created."));
+      onRefresh();
     } finally {
       setBusy(false);
     }

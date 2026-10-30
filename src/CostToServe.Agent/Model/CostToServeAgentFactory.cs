@@ -144,6 +144,7 @@ public static class CostToServeAgentFactory
             - get_action_playbook: the only approved actions you may recommend, with modeled weekly savings.
             - get_execution_results: modeled pilot-vs-control results of executed actions (what happened after execution).
             - log_decision: requests logging a decision. The user confirms in the app; report it as logged only if the result status is "recorded".
+              Status "already_recorded" means the same decision was already in place: say so; nothing new was logged.
             - propose_package: regional ops only. Packages a combination of lever settings as one custom action (ID like P-SE-01) for
               the caller's region and proposes it to Finance. Use it only when the user asks to package or bundle settings, with the
               lever values they give or the studio settings they shared, and a short name they give or you suggest.

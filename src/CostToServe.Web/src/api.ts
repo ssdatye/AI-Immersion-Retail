@@ -33,6 +33,17 @@ async function failure(response: Response) {
   return new ApiError(response.status, message);
 }
 
+/**
+ * The message for a failed request: the server's own message, or, when the connection dropped before an
+ * answer arrived, a note that the request may still have been recorded.
+ */
+export function failureText(e: unknown, after = "Showing the latest state."): string {
+  if (e instanceof ApiError) {
+    return e.message;
+  }
+  return `Couldn't confirm the result because the connection dropped. ${after}`;
+}
+
 export async function api<T>(auth: ApiAuth, path: string, init?: { method?: string; body?: unknown; signal?: AbortSignal }): Promise<T> {
   const response = await fetch(path, {
     method: init?.method ?? "GET",

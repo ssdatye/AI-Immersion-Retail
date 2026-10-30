@@ -167,6 +167,7 @@ public sealed class CostToServeTools(
                               "different setting (playbook actions only). Proposing or approving again with a different setting changes it. " +
                               "Regional ops may propose a revised setting for an approved, not yet executed action: the approval stays in force " +
                               "until finance approves the revision (approve with no setting accepts it) or rejects it (declines only the revision). " +
+                              "Status 'already_recorded' means the same decision was already logged; nothing changed. " +
                               "The user must confirm in the app; only a result with status 'recorded' means it was logged.",
             }),
         AIFunctionFactory.Create(
@@ -732,6 +733,27 @@ public sealed class CostToServeTools(
             var levers = modeled?.WithSetting(resolved);
             var canAmend = spec is not null && latest is not null && kind == latest.Decision && DecisionWorkflow.CanAmend(caller.Role, latest.Decision);
             var isAmendment = (canAmend || isRevision) && (setting is not null || pendingValue is not null) && resolved != current;
+
+            // Repeating the step already in force, at the same setting, changes nothing: say so instead of a conflict. This
+            // happens when a response was lost and the person clicks again. No confirmation is asked and nothing is logged.
+            var repeatsRevision = isRevision && pendingValue is not null && resolved == pendingValue;
+            var repeatsStep = !isRevision && pending is null && latest is not null && kind == latest.Decision
+                && (kind == DecisionKind.Reject || spec is null || resolved == current);
+            if (repeatsRevision || repeatsStep)
+            {
+                var state = repeatsRevision ? "proposed as a revision" : DecisionWorkflow.Status(latest!.Decision).ToLowerInvariant();
+                var at = resolved is { } same && spec is not null ? $" at {spec.Format(same)}" : string.Empty;
+                return (object)new
+                {
+                    Status = "already_recorded",
+                    ActionId = id,
+                    Region = decisionRegion,
+                    Decision = kind.Verb(),
+                    Setting = resolved is { } v && spec is not null ? spec.Format(v) : null,
+                    SettingValue = resolved,
+                    Message = $"{id} is already {state} for {decisionRegion}{at}. Nothing changed.",
+                };
+            }
             if (isRevision && !isAmendment)
             {
                 throw new DecisionConflictException($"{id} is already approved for {decisionRegion} at {spec!.Format(current!.Value)}. Propose a different setting to revise it.");

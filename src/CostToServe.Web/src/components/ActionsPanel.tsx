@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { api } from "../api";
+import { failureText } from "../api";
 import type { ApiAuth } from "../auth";
 import { toPercent, usdCompact } from "../format";
 import { waitsFor, type WaitingItem } from "../pending";
 import type { Caller, DecisionRecord, ExecutionResults, Playbook, PlaybookAction } from "../types";
 import { ExecutionResultsView } from "./ExecutionResultsView";
+import { submitDecision } from "./DecisionStrip";
 
 interface Props {
   auth: ApiAuth;
@@ -72,20 +73,22 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
     setBusy(actionId);
     setFeedback(null);
     try {
-      await api(auth, "/api/decisions", {
-        method: "POST",
-        body: { actionId, decision, reason: why ?? null, setting: settingPct === undefined ? null : settingPct / 100, region: decisionRegion },
-      });
+      const r = await submitDecision(auth, actionId, decision, why, settingPct === undefined ? undefined : settingPct / 100, decisionRegion);
       const at = settingPct === undefined ? "" : ` at ${settingPct}%`;
-      setFeedback({ actionId, text: `✓ ${PAST[decision]}${at} for ${decisionRegion} by you just now.`, error: false });
+      setFeedback({
+        actionId,
+        text: r.status === "already_recorded" && r.message ? `✓ ${r.message}` : `✓ ${PAST[decision]}${at} for ${decisionRegion} by you just now.`,
+        error: false,
+      });
       setRejecting(null);
       setReason("");
       setDrafts(({ [actionId]: _, ...rest }) => rest);
-      onChanged();
     } catch (e) {
-      setFeedback({ actionId, text: (e as Error).message, error: true });
+      setFeedback({ actionId, text: failureText(e), error: true });
     } finally {
       setBusy(null);
+      // Always reload: after an error or a dropped connection the server may already have moved on.
+      onChanged();
     }
   };
 

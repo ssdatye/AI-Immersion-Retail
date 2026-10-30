@@ -175,6 +175,9 @@ app.MapGet("/architecture", () =>
 app.MapFallback("/api/{**rest}", () => Results.NotFound());
 app.MapFallbackToFile("index.html");
 
+// Open Cosmos DB and Entra connections before taking traffic, so the first click after a restart is fast.
+await Warmup.RunAsync(app.Services, entra.IsConfigured, app.Logger);
+
 app.Run();
 return 0;
 

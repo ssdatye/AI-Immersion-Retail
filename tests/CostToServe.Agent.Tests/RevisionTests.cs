@@ -82,6 +82,24 @@ public sealed class RevisionTests
     }
 
     [Fact]
+    public async Task Repeating_a_decision_after_a_lost_response_changes_nothing()
+    {
+        Recorded(await Luis.LogDecisionAsync("A1", "propose", null, null, null, default));
+        var entries = _log.ReadAll().Count;
+
+        var again = Json(await Luis.LogDecisionAsync("A1", "propose", null, null, null, default));
+
+        Assert.Equal("already_recorded", again.GetProperty("status").GetString());
+        Assert.Contains("already proposed", again.GetProperty("message").GetString());
+        Assert.Equal(entries, _log.ReadAll().Count);
+        // A different setting is still a change, and a revision repeated at its value is also a no-op.
+        Recorded(await Luis.LogDecisionAsync("A1", "propose", null, 0.4, null, default));
+        Recorded(await Dana.LogDecisionAsync("A1", "approve", null, null, "Southeast", default));
+        Recorded(await Luis.LogDecisionAsync("A1", "propose", null, 0.3, null, default));
+        Assert.Equal("already_recorded", Json(await Luis.LogDecisionAsync("A1", "propose", null, 0.3, null, default)).GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task Executing_runs_the_approved_setting_and_the_revision_lapses()
     {
         await ApproveA2At20();

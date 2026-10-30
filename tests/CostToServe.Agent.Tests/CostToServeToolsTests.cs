@@ -166,7 +166,8 @@ public sealed class CostToServeToolsTests : IDisposable
         var luis = ToolsFor(DemoPersonas.Luis);
 
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
-        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
+        // Repeating the step in force changes nothing and says so (for example after a lost response); nothing is logged.
+        Assert.Equal("already_recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
         // Proposing an approved action is a revision, which needs a new setting.
         Assert.Equal("invalid_request", await Error(luis.LogDecisionAsync("A2", "propose", null, default)));
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "reject", "Revoked: stock risk", null, "Southeast", default)));
@@ -174,7 +175,7 @@ public sealed class CostToServeToolsTests : IDisposable
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A2", "propose", null, default)));
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A2", "execute", null, default)));
-        Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A2", "execute", null, default)));
+        Assert.Equal("already_recorded", await Status(luis.LogDecisionAsync("A2", "execute", null, default)));
         Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A2", "reject", "too late", null, "Southeast", default)));
         Assert.Equal(5, _log.Entries.Count);
     }
@@ -243,12 +244,12 @@ public sealed class CostToServeToolsTests : IDisposable
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", null, null, "Southeast", default)));
         Assert.Equal(0.05, _log.Entries[^1].Setting);
 
-        // Finance changes the approval; repeating the same value is a conflict. Ops can only propose a revision.
+        // Finance changes the approval; repeating the same value changes nothing. Ops can only propose a revision.
         Assert.True(PlaybookAction(dana, "A6").GetProperty("canAmendSetting").GetBoolean());
         Assert.False(PlaybookAction(luis, "A6").GetProperty("canAmendSetting").GetBoolean());
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", "smaller pilot", 0.04, "Southeast", default)));
-        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, 0.04, "Southeast", default)));
-        Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, null, "Southeast", default)));
+        Assert.Equal("already_recorded", await Status(dana.LogDecisionAsync("A6", "approve", null, 0.04, "Southeast", default)));
+        Assert.Equal("already_recorded", await Status(dana.LogDecisionAsync("A6", "approve", null, null, "Southeast", default)));
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A6", "propose", null, 0.06, default)));
 
         // The approved 4% stays in force while the revision waits; executing runs it and the revision lapses.
@@ -270,7 +271,7 @@ public sealed class CostToServeToolsTests : IDisposable
 
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A4", "propose", null, 0.3, default)));
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A4", "propose", null, 0.5, default)));
-        Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A4", "propose", null, 0.5, default)));
+        Assert.Equal("already_recorded", await Status(luis.LogDecisionAsync("A4", "propose", null, 0.5, default)));
         Assert.Equal(0.5, PlaybookAction(dana, "A4").GetProperty("setting").GetProperty("value").GetDouble());
 
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A4", "reject", "too aggressive", null, "Southeast", default)));

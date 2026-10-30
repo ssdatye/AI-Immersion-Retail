@@ -555,6 +555,7 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                         region={dashboard.caller.scope}
                         levers={levers}
                         onProposed={refreshDecisions}
+                        onRefresh={refreshDecisions}
                         onOpen={(id) => {
                           setDecisionRegion(dashboard.caller.scope);
                           setDrawer("decisions");
