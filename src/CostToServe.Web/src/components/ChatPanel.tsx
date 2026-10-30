@@ -68,7 +68,7 @@ export function ChatPanel({
     {
       id: 0,
       role: "agent",
-      text: `Hi ${displayName}. Ask a what-if question. For fine adjustments without the agent, open ⚙ Fine-tune the model. Every number I give comes from the cost engine. All data is illustrative.`,
+      text: `Hi ${displayName}. Ask a what-if question. For fine adjustments without the agent, open ⚙ Fine-tune model. Every number I give comes from the cost engine. All data is illustrative.`,
       tools: [],
       cards: [],
     },

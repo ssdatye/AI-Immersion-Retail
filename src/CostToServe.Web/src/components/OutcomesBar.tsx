@@ -71,7 +71,7 @@ export const OutcomesBar = forwardRef<HTMLElement, Props>(function OutcomesBar(
           <span role="status" key={changes.length ? "pending" : "synced"} className="fade-in">
             {changes.length === 0
               ? "✓ The agent has your current model settings"
-              : `✎ ${changes.length} model ${changes.length === 1 ? "change" : "changes"} not shared with the agent${drawer === "model" ? " · ask from the panel" : ""}`}
+              : `✎ ${changes.length} ${changes.length === 1 ? "change" : "changes"} not shared with the agent${drawer === "model" ? " yet · ask from the panel" : ""}`}
           </span>
           {changes.length > 0 && drawer !== "model" && (
             <button type="button" className="primary fade-in" onClick={onAskChanges}>
@@ -87,7 +87,7 @@ export const OutcomesBar = forwardRef<HTMLElement, Props>(function OutcomesBar(
             aria-controls="studio-drawer"
             onClick={() => toggle("model")}
           >
-            ⚙ {drawer === "model" ? "Hide the model" : "Fine-tune the model"}
+            ⚙ {drawer === "model" ? "Hide the model" : "Fine-tune model"}
           </button>
           <button
             type="button"

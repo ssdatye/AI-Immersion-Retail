@@ -95,7 +95,7 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
 * Ask the agent questions. Tool calls appear as chips. Under each answer, "✓ Proof"
   expands to the tool calls in order and the field each number came from. When the agent
   asks to log a decision, a card appears; nothing is logged until you click Confirm.
-* For fine adjustments without the agent, open **⚙ Fine-tune the model**: diesel presets
+* For fine adjustments without the agent, open **⚙ Fine-tune model**: diesel presets
   and sliders, every lever, and outcome details. Outcomes recompute on the server with the
   same engine and scope rules as the agent, with no model call. Changes you make there are
   listed as "not shared with the agent" until you click **Ask the agent about these

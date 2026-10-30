@@ -284,10 +284,13 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
     };
   }, [dashboard, tab]);
 
-  const closeDrawer = () => {
+  // Keyboard users get focus back on the button that opened the panel; after a mouse click, no focus ring is left behind.
+  const closeDrawer = (fromKeyboard: boolean) => {
     const was = drawer;
     setDrawer(null);
-    setTimeout(() => barRef.current?.querySelector<HTMLElement>(`.obar-buttons button:nth-child(${was === "decisions" ? 2 : 1})`)?.focus(), 0);
+    if (fromKeyboard) {
+      setTimeout(() => barRef.current?.querySelector<HTMLElement>(`.obar-buttons button:nth-child(${was === "decisions" ? 2 : 1})`)?.focus(), 0);
+    }
   };
 
   const openDrawer = (view: DrawerView | null) => {
@@ -394,7 +397,7 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                 aria-labelledby="drawer-h"
                 onKeyDown={(e) => {
                   if (e.key === "Escape") {
-                    closeDrawer();
+                    closeDrawer(true);
                   }
                 }}
               >
@@ -405,7 +408,8 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                     </h2>
                     <span className="muted small">{drawer === "decisions" ? "People decide, region by region" : "Cost engine · instant · no AI"}</span>
                   </div>
-                  <button type="button" onClick={closeDrawer}>
+                  {/* A click from Enter or Space has detail 0. */}
+                  <button type="button" onClick={(e) => closeDrawer(e.detail === 0)}>
                     Close ▸
                   </button>
                 </div>

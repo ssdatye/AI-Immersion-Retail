@@ -751,6 +751,11 @@ svg .marker-text {
   color: var(--green);
 }
 
+/* WCAG 2.5.8: sliders get a 24px-tall target. */
+input[type="range"] {
+  min-height: 24px;
+}
+
 input[type="range"].has-floor {
   accent-color: var(--green);
 }
@@ -1551,9 +1556,10 @@ input[type="range"].has-floor {
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(180px, 0.9fr) minmax(0, 3fr) minmax(250px, 1.1fr);
+  grid-template-columns: minmax(170px, 0.8fr) minmax(0, 3fr) minmax(300px, 1.1fr);
   gap: 10px 16px;
-  align-items: center;
+  /* All three columns share one height, so the cards and the controls line up top and bottom. */
+  align-items: stretch;
   padding: 10px 18px;
   background: var(--panel);
   border-bottom: 2px solid var(--line);
@@ -1571,6 +1577,10 @@ input[type="range"].has-floor {
   color: var(--muted);
 }
 
+.obar-label {
+  align-self: center;
+}
+
 .obar-kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1584,6 +1594,7 @@ input[type="range"].has-floor {
   padding: 6px 12px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
 }
 
 .okpi span {
@@ -1673,8 +1684,9 @@ input[type="range"].has-floor {
 
 .obar-buttons button {
   flex: 1;
-  min-height: 32px;
+  min-height: 34px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .obar-buttons button.active {
@@ -1700,8 +1712,7 @@ input[type="range"].has-floor {
 
 .studio-main .chat {
   position: static;
-  max-width: 1000px;
-  margin: 0 auto;
+  margin: 0;
   height: var(--chat-h, calc(100vh - var(--bar-h, 0px) - 30px));
   min-height: 420px;
 }
@@ -1993,7 +2004,7 @@ input[type="range"].has-floor {
 /* Narrower screens: the side panel sits above the conversation instead of over it. */
 @media (max-width: 1100px) {
   .obar {
-    grid-template-columns: minmax(0, 1fr) minmax(240px, auto);
+    grid-template-columns: minmax(0, 1fr) minmax(300px, auto);
   }
 
   .obar-label {
