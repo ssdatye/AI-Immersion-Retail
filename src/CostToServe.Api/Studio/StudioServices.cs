@@ -25,9 +25,10 @@ public sealed class StudioServices
 
     public StudioServices(
         SeedDataSet data, string seedVersion, IDecisionLog decisionLog, FoundryOptions foundry, TokenCredential credential,
-        ActionCatalog? actions = null, ITranscriptStore? transcripts = null, string dataMode = "csv")
+        ActionCatalog? actions = null, ITranscriptStore? transcripts = null, string dataMode = "csv", IPackageStore? packages = null)
     {
         Transcripts = transcripts;
+        Packages = packages;
         DataMode = dataMode;
         Actions = actions ?? ActionCatalog.Default;
         Data = data;
@@ -48,6 +49,9 @@ public sealed class StudioServices
 
     public IDecisionLog DecisionLog { get; }
 
+    /// <summary>Custom action packages; null when the host keeps none.</summary>
+    public IPackageStore? Packages { get; }
+
     /// <summary>Where chat turns are kept for evaluations; null keeps none.</summary>
     public ITranscriptStore? Transcripts { get; }
 
@@ -63,7 +67,7 @@ public sealed class StudioServices
 
     /// <summary>Tools for direct UI actions. A button click is itself the human confirmation.</summary>
     public CostToServeTools ToolsFor(CallerContext caller) =>
-        new(Data, Engine, caller, DecisionLog, AutoConfirmer.Instance, actions: Actions);
+        new(Data, Engine, caller, DecisionLog, AutoConfirmer.Instance, actions: Actions, packages: Packages);
 
     /// <summary>Recent answers for the Trust Center (in memory).</summary>
     public TrustLog Trust { get; } = new();
@@ -83,7 +87,8 @@ public sealed class StudioServices
 
                 relay.Emit(new StudioEvent("tool", new { name, outcome }));
             },
-            actions: Actions);
+            actions: Actions,
+            packages: Packages);
         var agent = CostToServeAgentFactory.Create(_client.Value, Foundry, tools, Data);
         return Conversations.Add(new Conversation(Guid.NewGuid().ToString("n"), caller.Id, agent, relay)
         {

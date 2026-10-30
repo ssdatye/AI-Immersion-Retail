@@ -25,12 +25,12 @@ public sealed class CostToServeToolsTests : IDisposable
     private CostToServeTools ToolsFor(CallerContext caller) => new(Seed, Engine, caller, _log, _confirmer);
 
     [Fact]
-    public void Exposes_seven_tools_and_never_takes_identity_from_the_model()
+    public void Exposes_eight_tools_and_never_takes_identity_from_the_model()
     {
         var tools = ToolsFor(DemoPersonas.Dana).Create().Cast<AIFunction>().ToArray();
 
         Assert.Equal(
-            ["check_guardrail", "explain_variance", "get_action_playbook", "get_cost_per_order", "get_execution_results", "log_decision", "run_scenario"],
+            ["check_guardrail", "explain_variance", "get_action_playbook", "get_cost_per_order", "get_execution_results", "log_decision", "propose_package", "run_scenario"],
             tools.Select(t => t.Name).Order());
         foreach (var tool in tools)
         {

@@ -23,6 +23,9 @@ public sealed record GuardrailRequest(Levers? Levers, string? ActionIds, string?
 
 public sealed record DecisionRequest(string ActionId, string Decision, string? Reason, double? Setting = null, string? Region = null);
 
+/// <summary>Regional ops packages lever settings as one custom action and proposes it to Finance.</summary>
+public sealed record PackageRequest(string Name, Levers Levers, string? Reason = null);
+
 public static class StudioEndpoints
 {
     public const string PersonaHeader = "X-Demo-Persona";
@@ -152,6 +155,9 @@ public static class StudioEndpoints
 
         api.MapPost("/decisions", async (HttpContext http, StudioServices s, DecisionRequest r, CancellationToken ct) =>
             ToResult(await s.ToolsFor(Caller(http)).LogDecisionAsync(r.ActionId, r.Decision, r.Reason, r.Setting, r.Region, ct)));
+
+        api.MapPost("/packages", async (HttpContext http, StudioServices s, PackageRequest r, CancellationToken ct) =>
+            ToResult(await s.ToolsFor(Caller(http)).ProposePackageAsync(r.Name, r.Reason, r.Levers ?? Levers.None, ct)));
 
         api.MapPost("/confirmations/{id}", (HttpContext http, StudioServices s, string id, ConfirmationRequest r) =>
             s.Confirmations.Resolve(id, Caller(http).Id, r.Confirm) ? Results.NoContent() : Results.NotFound());

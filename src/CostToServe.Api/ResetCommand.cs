@@ -12,12 +12,12 @@ internal static class ResetCommand
     private const string Usage = "Usage: reset [--target local|azure] [--yes]";
 
     /// <param name="azureReset">
-    /// Clears the Azure demo state (Cosmos decisions and transcripts) and describes the target, or null when
+    /// Clears the Azure demo state (Cosmos decisions, transcripts and custom packages) and describes the target, or null when
     /// Azure is not configured. Seed facts in Azure SQL are read-only and need no reset.
     /// </param>
     public static int Run(
         string[] args, ResolvedPaths paths, TextReader input, TextWriter output, TextWriter error, bool inputRedirected,
-        (string Target, Func<(int Decisions, int Threads)> Clear)? azureReset = null)
+        (string Target, Func<(int Decisions, int Threads, int Packages)> Clear)? azureReset = null)
     {
         var target = "local";
         var confirmed = false;
@@ -49,7 +49,7 @@ internal static class ResetCommand
             }
 
             output.WriteLine($"Reset Azure demo state in: {azure.Target}");
-            output.WriteLine("Deletes every decision and chat transcript. Seed facts in Azure SQL are not changed.");
+            output.WriteLine("Deletes every decision, chat transcript and custom package. Seed facts in Azure SQL are not changed.");
             if (!Confirm(confirmed, inputRedirected, input, output, error))
             {
                 return 1;
@@ -57,8 +57,8 @@ internal static class ResetCommand
 
             try
             {
-                var (decisions, threads) = azure.Clear();
-                output.WriteLine($"Done. Deleted {decisions} decisions and {threads} transcripts. Refresh the studio to see the change.");
+                var (decisions, threads, packages) = azure.Clear();
+                output.WriteLine($"Done. Deleted {decisions} decisions, {threads} transcripts and {packages} packages. Refresh the studio to see the change.");
                 return 0;
             }
             catch (Exception ex)

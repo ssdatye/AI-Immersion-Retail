@@ -13,10 +13,11 @@ public sealed class LocalDemoState
 {
     public const string DecisionLogFile = "decision_log.csv";
     public const string ChatTranscriptsFile = "chat_transcripts.jsonl";
+    public const string PackagesFile = "packages.jsonl";
     public const string MarkerFile = ".cost-to-serve-demo-state";
 
     /// <summary>Files owned by the demo state; later increments add theirs here.</summary>
-    public static IReadOnlyList<string> ManagedFiles { get; } = [DecisionLogFile, ChatTranscriptsFile];
+    public static IReadOnlyList<string> ManagedFiles { get; } = [DecisionLogFile, ChatTranscriptsFile, PackagesFile];
 
     public LocalDemoState(string seedDirectory, string stateDirectory)
     {

@@ -173,11 +173,24 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
                       <span className="muted"> · playbook {spec.isDefault ? "default" : `default ${toPercent(spec.default)}%`}</span>
                     </div>
                   )}
-                  {a.leverSource && <div className="muted small">Default source: {a.leverSource}</div>}
+                  {a.isPackage ? (
+                    <div className="muted small">
+                      Created by {a.createdBy}
+                      {a.createdAt ? ` · ${when(a.createdAt)}` : ""} · applies to {a.packageRegion} only · decided as a whole
+                    </div>
+                  ) : (
+                    a.leverSource && <div className="muted small">Default source: {a.leverSource}</div>
+                  )}
                   <div className="action-tags">
-                    <span className={`tag ${IMPACT_CLASS[a.customerImpact] ?? ""}`} title="Customer impact">
-                      {a.customerImpact === "None" ? "No customer impact" : `${a.customerImpact} impact`}
-                    </span>
+                    {a.isPackage ? (
+                      <span className="tag package" title="A bundle of lever settings proposed as one action">
+                        📦 Custom package
+                      </span>
+                    ) : (
+                      <span className={`tag ${IMPACT_CLASS[a.customerImpact] ?? ""}`} title="Customer impact">
+                        {a.customerImpact === "None" ? "No customer impact" : `${a.customerImpact} impact`}
+                      </span>
+                    )}
                     <span className={`tag ${a.guardrailPassed ? "lo" : "hi"}`} title={a.guardrailRule}>
                       {a.guardrailPassed ? "✔ Guardrail ok" : "✖ Breaks guardrail"}
                     </span>

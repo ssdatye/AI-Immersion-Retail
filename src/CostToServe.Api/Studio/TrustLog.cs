@@ -12,8 +12,8 @@ public sealed record TurnToolCall(string Name, string Outcome, JsonNode? Result)
     /// <summary>The tool's refusal message, for example a scope or guardrail rule; null when the call succeeded.</summary>
     public string? Message => Outcome == "ok" ? null : (string?)(Result as JsonObject)?["message"];
 
-    /// <summary>"recorded" or "not_recorded" for log_decision calls that reached the confirmation step.</summary>
-    public string? DecisionStatus => Name == "log_decision" && Outcome == "ok" ? (string?)(Result as JsonObject)?["status"] : null;
+    /// <summary>"recorded" or "not_recorded" for log_decision and propose_package calls that reached the confirmation step.</summary>
+    public string? DecisionStatus => Name is "log_decision" or "propose_package" && Outcome == "ok" ? (string?)(Result as JsonObject)?["status"] : null;
 }
 
 /// <summary>One agent answer, as shown in the Trust Center. No tool payloads are kept.</summary>
@@ -125,8 +125,8 @@ public sealed class TrustSpanStore : BaseProcessor<Activity>
 
         if (name.StartsWith("execute_tool", StringComparison.Ordinal))
         {
-            // log_decision waits for a person to confirm; show that time as the person's, not the engine's.
-            return name.Contains("log_decision", StringComparison.Ordinal) ? "person" : "tool";
+            // log_decision and propose_package wait for a person to confirm; show that time as the person's, not the engine's.
+            return name.Contains("log_decision", StringComparison.Ordinal) || name.Contains("propose_package", StringComparison.Ordinal) ? "person" : "tool";
         }
 
         var host = a.GetTagItem("server.address") as string;
@@ -141,7 +141,7 @@ public sealed class TrustSpanStore : BaseProcessor<Activity>
         "agent" => "Agent run",
         "model" => "Model call · " + (a.GetTagItem("gen_ai.request.model") as string ?? a.DisplayName[5..]),
         "tool" => (a.GetTagItem("gen_ai.tool.name") as string ?? a.DisplayName.Replace("execute_tool", string.Empty).Trim()) + " · cost engine",
-        "person" => "log_decision · waiting for a person to confirm",
+        "person" => (a.DisplayName.Contains("propose_package", StringComparison.Ordinal) ? "propose_package" : "log_decision") + " · waiting for a person to confirm",
         "data" => "Cosmos DB · decisions",
         _ => a.DisplayName,
     };

@@ -8,8 +8,8 @@ namespace CostToServe.Api.Cloud;
 
 /// <summary>
 /// Cosmos DB (serverless, Entra-only) for mutable demo state: <c>decisions</c> (partition
-/// <c>/actionId</c>) and <c>threads</c> (chat transcripts, partition <c>/ownerId</c>). The
-/// <c>scenarios</c> container is provisioned for saved scenarios and evaluation runs.
+/// <c>/actionId</c>), <c>threads</c> (chat transcripts, partition <c>/ownerId</c>) and
+/// <c>scenarios</c> (partition <c>/ownerId</c>), which holds custom action packages.
 /// </summary>
 public sealed class CosmosStores : IDisposable
 {
@@ -24,11 +24,14 @@ public sealed class CosmosStores : IDisposable
         _client = client;
         Decisions = database.GetContainer(DecisionsContainer);
         Threads = database.GetContainer(ThreadsContainer);
+        Scenarios = database.GetContainer(ScenariosContainer);
     }
 
     public Container Decisions { get; }
 
     public Container Threads { get; }
+
+    public Container Scenarios { get; }
 
     public static async Task<CosmosStores> ConnectAsync(CosmosOptions options, TokenCredential credential, CancellationToken ct = default)
     {
@@ -48,9 +51,11 @@ public sealed class CosmosStores : IDisposable
         return new CosmosStores(client, database);
     }
 
-    /// <summary>Deletes every decision and transcript. Destructive for the demo's Cosmos data only.</summary>
-    public async Task<(int Decisions, int Threads)> ClearAsync(CancellationToken ct = default) =>
-        (await ClearAsync(Decisions, "actionId", ct).ConfigureAwait(false), await ClearAsync(Threads, "ownerId", ct).ConfigureAwait(false));
+    /// <summary>Deletes every decision, transcript and package. Destructive for the demo's Cosmos data only.</summary>
+    public async Task<(int Decisions, int Threads, int Packages)> ClearAsync(CancellationToken ct = default) =>
+        (await ClearAsync(Decisions, "actionId", ct).ConfigureAwait(false),
+         await ClearAsync(Threads, "ownerId", ct).ConfigureAwait(false),
+         await ClearAsync(Scenarios, "ownerId", ct).ConfigureAwait(false));
 
     private static async Task<int> ClearAsync(Container container, string partitionKey, CancellationToken ct)
     {
@@ -141,6 +146,72 @@ public sealed class CosmosDecisionLog(Container container) : IDecisionLog
             Reason,
             Setting,
             Region);
+    }
+}
+
+/// <summary>
+/// Custom action packages in the Cosmos <c>scenarios</c> container, partition <c>packages</c>, item ID = package ID
+/// (so a duplicate ID is rejected by Cosmos). Read through on every call, like the decision log.
+/// </summary>
+public sealed class CosmosPackageStore(Container container) : IPackageStore
+{
+    public const string Partition = "packages";
+
+    public IReadOnlyList<ActionPackage> ReadAll()
+    {
+        var items = new List<ActionPackage>();
+        using var feed = container.GetItemQueryIterator<PackageDocument>(
+            new QueryDefinition("SELECT * FROM c WHERE c.type = 'package'"),
+            requestOptions: new QueryRequestOptions { PartitionKey = new PartitionKey(Partition) });
+        while (feed.HasMoreResults)
+        {
+            items.AddRange(feed.ReadNextAsync().GetAwaiter().GetResult().Select(d => d.ToPackage()));
+        }
+
+        return items.OrderBy(p => p.CreatedAt).ToArray();
+    }
+
+    public void Add(ActionPackage package)
+    {
+        try
+        {
+            container.CreateItemAsync(PackageDocument.From(package), new PartitionKey(Partition)).GetAwaiter().GetResult();
+        }
+        catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.Conflict)
+        {
+            throw new InvalidOperationException($"Package {package.Id} already exists.", ex);
+        }
+    }
+
+    public sealed class PackageDocument
+    {
+        public string Id { get; set; } = "";
+
+        public string OwnerId { get; set; } = Partition;
+
+        public string Type { get; set; } = "package";
+
+        public string Name { get; set; } = "";
+
+        public string Region { get; set; } = "";
+
+        public CostToServe.Core.Model.Levers Levers { get; set; } = CostToServe.Core.Model.Levers.None;
+
+        public string CreatedBy { get; set; } = "";
+
+        public string CreatedAt { get; set; } = "";
+
+        public static PackageDocument From(ActionPackage p) => new()
+        {
+            Id = p.Id,
+            Name = p.Name,
+            Region = p.Region,
+            Levers = p.Levers,
+            CreatedBy = p.CreatedBy,
+            CreatedAt = p.CreatedAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture),
+        };
+
+        public ActionPackage ToPackage() => new(Id, Name, Region, Levers, CreatedBy, DateTimeOffset.Parse(CreatedAt, CultureInfo.InvariantCulture));
     }
 }
 

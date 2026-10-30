@@ -100,7 +100,7 @@ public sealed class SeedDataAndResetTests : IDisposable
 
         Assert.Equal("timestamp,action_id,approver,decision,reason,next_day_result\n", File.ReadAllText(log));
         Assert.Equal("keep me", File.ReadAllText(Path.Combine(stateDir, "notes.txt")));
-        Assert.Equal([LocalDemoState.DecisionLogFile, LocalDemoState.ChatTranscriptsFile], result.FilesReset);
+        Assert.Equal([LocalDemoState.DecisionLogFile, LocalDemoState.ChatTranscriptsFile, LocalDemoState.PackagesFile], result.FilesReset);
     }
 
     [Fact]

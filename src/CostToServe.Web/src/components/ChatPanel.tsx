@@ -167,7 +167,7 @@ export function ChatPanel({
             break;
           case "tool":
             update(agentId, (t) => ({ ...t, tools: [...t.tools, { name: String(data.name), outcome: String(data.outcome) }] }));
-            if (data.name === "log_decision" && data.outcome === "ok") {
+            if ((data.name === "log_decision" || data.name === "propose_package") && data.outcome === "ok") {
               onDecisionLogged();
             }
             break;
@@ -261,7 +261,11 @@ export function ChatPanel({
                   {c.actionName}
                   {c.region ? ` · for ${c.region}` : ""}
                 </div>
-                {c.setting && <div>Setting: {c.setting}</div>}
+                {c.setting && (
+                  <div>
+                    {/^P-/.test(c.actionId) ? "Includes" : "Setting"}: {c.setting}
+                  </div>
+                )}
                 {c.reason && <div className="muted">Reason: {c.reason}</div>}
                 {c.estimatedWeeklySavingUsd != null && <div className="muted">Modeled weekly saving: {usd(c.estimatedWeeklySavingUsd, 0)}</div>}
                 {c.guardrailNotes.map((n) => (

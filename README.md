@@ -14,10 +14,11 @@ C# port of the reference demo in
 Decisions are in [docs/adr/000-reuse-assessment.md](docs/adr/000-reuse-assessment.md),
 [docs/adr/001-agent-and-model-access.md](docs/adr/001-agent-and-model-access.md),
 [docs/adr/002-what-if-studio.md](docs/adr/002-what-if-studio.md),
-[docs/adr/003-entra-sign-in.md](docs/adr/003-entra-sign-in.md) and
+[docs/adr/003-entra-sign-in.md](docs/adr/003-entra-sign-in.md),
 [docs/adr/004-hosted-platform.md](docs/adr/004-hosted-platform.md),
-[docs/adr/005-agent-evaluations.md](docs/adr/005-agent-evaluations.md) and
-[docs/adr/006-trust-center.md](docs/adr/006-trust-center.md).
+[docs/adr/005-agent-evaluations.md](docs/adr/005-agent-evaluations.md),
+[docs/adr/006-trust-center.md](docs/adr/006-trust-center.md) and
+[docs/adr/007-custom-action-packages.md](docs/adr/007-custom-action-packages.md).
 
 The architecture as built, with technology choices, Dana and Luis sequence diagrams, cost and
 the production view, is in
@@ -121,6 +122,16 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
   to…**). In chat, use `/propose A6 5%` or `/approve A6 4% smaller pilot`. Every step logs
   the setting, and outcomes, savings, the guardrail check and execution results use it. A
   setting that breaks the Express guardrail cannot be approved. A3 and A5 are on/off.
+* Package tuned levers as one custom action. When Luis has set levers in **Fine-tune the
+  model**, the panel footer offers **📦 Propose these levers as a package**. He names it (for
+  example "Southeast fuel response"), adds an optional reason, and proposes it. The package
+  gets a readable ID such as `P-SE-01` (region code and sequence) and appears in Decisions
+  with a 📦 tag, its levers and its creator. Finance approves or rejects the whole package, with
+  no separate setting; Luis executes it once approved. A package applies only in its own region,
+  only callers who can see that region see it, and the guardrail check, outcomes and execution
+  results use its levers. Luis can also ask the agent, for example "Package batch Express at
+  40% with the surcharge cap as 'Southeast holiday plan' and propose it"; the agent shows a
+  confirmation card first. Reset removes packages.
 * The playbook defaults and their sources live in `data/config/action-levers.csv`: A1-A3
   come from the reference demo, and A4-A6 are approximated from the playbook text. Edit the
   file and restart the studio to change them.
@@ -137,6 +148,7 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
   | `/status [A1] [region]`                       | Status and your next steps                            |
   | `/help`                                       | List commands                                         |
 
+  Commands also take package IDs, for example `/approve P-SE-01` (no setting).
   Without a region, commands use the region selected in Actions and decisions. Buttons and
   commands use the same server checks as the actions table.
 
@@ -197,6 +209,7 @@ curl -X POST http://localhost:5080/api/scenario -H 'X-Demo-Persona: dana' -H 'co
 | `GET /api/playbook`                            | Approved actions with modeled weekly savings and latest decision                      |
 | `GET /api/results`                             | Modeled pilot-vs-control results of executed actions                                  |
 | `GET /api/decisions`, `POST /api/decisions`    | Decision log; propose, approve, reject or execute                                     |
+| `POST /api/packages`                           | Regional ops creates and proposes a custom package: `name`, `levers`, `reason`        |
 | `POST /api/chat`                               | Agent chat as server-sent events: `delta`, `tool`, `confirmation`, `evidence`, `done` |
 | `GET /api/trust`                               | Trust Center: last evaluation, live evidence, latest trace, portal links              |
 | `POST /api/confirmations/{id}`                 | Confirm or cancel a decision card; only its owner can                                 |
@@ -299,6 +312,7 @@ accepts Entra tokens only; there are no keys.
 | `check_guardrail`     | Express at least 80% within 3 hours, plus other guardrails  |
 | `get_action_playbook` | Approved actions with modeled weekly savings                |
 | `log_decision`        | Records a decision after you type `yes` to confirm          |
+| `propose_package`     | Bundles levers into a custom package and proposes it        |
 
 Personas are a local stand-in until Entra sign-in in Increment 4. Scope is enforced in the
 tools, not the prompt: Luis gets `scope_denied` for other regions. Finance approves or
@@ -328,7 +342,7 @@ Increment 5 adds the hosted platform ([ADR 004](docs/adr/004-hosted-platform.md)
 ```text
 Browser -> APIM front gate -> App Service (studio, .NET 10, B2) -> APIM AI gateway -> Foundry
                                  | -> Azure SQL (seed cost facts)             |
-                                 | -> Cosmos DB (decisions, chat transcripts) |
+                                 | -> Cosmos DB (decisions, chats, packages)  |
                                  '-> Application Insights (traces and logs, via managed identity)
 ```
 
@@ -365,10 +379,10 @@ resources and asks you to type the group name:
 
 Reset first verifies `data/seed` against `SHA256SUMS`, and refuses to continue if any seed
 file changed. It then restores only the files it manages in `data/local`, including the
-decision log and chat transcripts; other files are left alone.
+decision log, chat transcripts and custom packages; other files are left alone.
 
-`./scripts/reset-demo.sh --target azure` deletes every decision and chat transcript in the
-demo's Cosmos DB, then restarts the web app so the Trust Center's live view starts fresh, and
+`./scripts/reset-demo.sh --target azure` deletes every decision, chat transcript and custom
+package in the demo's Cosmos DB, then restarts the web app so the Trust Center's live view starts fresh, and
 waits until the studio is healthy (about a minute). Add `--no-restart` to skip the restart.
 Seed facts in Azure SQL and the acceptance tests are not changed; reload the facts with
 `./scripts/seed-azure-sql.sh`. For a local run, restart the API yourself to clear the live view.

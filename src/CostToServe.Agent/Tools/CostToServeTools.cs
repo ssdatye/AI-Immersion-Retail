@@ -23,7 +23,8 @@ public sealed class CostToServeTools(
     IDecisionConfirmer confirmer,
     TimeProvider? timeProvider = null,
     Action<string, string, object?>? onToolCompleted = null,
-    ActionCatalog? actions = null)
+    ActionCatalog? actions = null,
+    IPackageStore? packages = null)
 {
     public const string GetCostPerOrderName = "get_cost_per_order";
     public const string ExplainVarianceName = "explain_variance";
@@ -32,6 +33,7 @@ public sealed class CostToServeTools(
     public const string GetActionPlaybookName = "get_action_playbook";
     public const string LogDecisionName = "log_decision";
     public const string GetExecutionResultsName = "get_execution_results";
+    public const string ProposePackageName = "propose_package";
 
     private const string DataNotice = "Illustrative demo data; not real Walmart data.";
     private readonly TimeProvider _time = timeProvider ?? TimeProvider.System;
@@ -46,6 +48,7 @@ public sealed class CostToServeTools(
         [nameof(GetActionPlaybook)] = GetActionPlaybookName,
         [nameof(LogDecisionAsync)] = LogDecisionName,
         [nameof(GetExecutionResults)] = GetExecutionResultsName,
+        [nameof(ProposePackageAsync)] = ProposePackageName,
     };
 
     public CallerContext Caller => caller;
@@ -147,7 +150,7 @@ public sealed class CostToServeTools(
                               "and the weekly saving if scaled across the pilot region.",
             }),
         AIFunctionFactory.Create(
-            ([Description("Playbook action ID, A1 to A6.")] string action_id,
+            ([Description("Playbook action ID (A1 to A6) or a custom package ID such as P-SE-01.")] string action_id,
              [Description("propose, approve, reject or execute.")] string decision,
              [Description("Reason. Required when rejecting.")] string? reason,
              [Description("Optional setting for the action's adjustable lever as a fraction when proposing or approving, " +
@@ -160,11 +163,49 @@ public sealed class CostToServeTools(
             new AIFunctionFactoryOptions
             {
                 Name = LogDecisionName,
-                Description = "Requests that a decision on a playbook action be logged for one region, optionally with a different setting. " +
-                              "Proposing or approving again with a different setting changes it. The user must confirm in the app; " +
-                              "only a result with status 'recorded' means it was logged.",
+                Description = "Requests that a decision on a playbook action or custom package be logged for one region, optionally with a " +
+                              "different setting (playbook actions only). Proposing or approving again with a different setting changes it. " +
+                              "The user must confirm in the app; only a result with status 'recorded' means it was logged.",
+            }),
+        AIFunctionFactory.Create(
+            ([Description("Short friendly name for the package, for example 'Southeast fuel squeeze'.")] string name,
+             [Description("Why it is proposed. Optional.")] string? reason = null,
+             [Description("Share of Express orders batched into 2-hour windows, 0 to 0.6.")] double batch_express_share = 0,
+             [Description("Share of delivery orders filled from a closer store, 0 to 0.4.")] double closer_store_share = 0,
+             [Description("Fractional reduction in split shipments, 0 to 0.6.")] double split_shipment_reduction = 0,
+             [Description("Share of Same-day and Express orders nudged to Pickup, 0 to 0.1.")] double pickup_shift_share = 0,
+             [Description("Express fee change in USD per order, -1 to 3.")] double express_fee_change_usd = 0,
+             [Description("Minimum basket for Express in rural zips.")] bool rural_minimum_basket = false,
+             [Description("Cap carrier fuel surcharge at the contract index.")] bool carrier_surcharge_cap = false,
+             CancellationToken cancellationToken = default) =>
+                ProposePackageAsync(name, reason, new Levers
+                {
+                    Batch = batch_express_share,
+                    Closer = closer_store_share,
+                    Split = split_shipment_reduction,
+                    Pickup = pickup_shift_share,
+                    Fee = express_fee_change_usd,
+                    Basket = rural_minimum_basket,
+                    Cap = carrier_surcharge_cap,
+                }, cancellationToken),
+            new AIFunctionFactoryOptions
+            {
+                Name = ProposePackageName,
+                Description = "Regional ops only: packages a combination of lever settings as one custom action (ID like P-SE-01) for the " +
+                              "caller's region and proposes it to Finance as a single decision. The user must confirm in the app; only a " +
+                              "result with status 'recorded' means it was created and proposed.",
             }),
     ];
+
+    /// <summary>Custom packages in regions the caller can see.</summary>
+    private IReadOnlyList<ActionPackage> VisiblePackages() =>
+        packages?.ReadAll().Where(p => caller.CanSee(data.CanonicalRegion(p.Region))).ToArray() ?? [];
+
+    /// <summary>The playbook actions plus the caller's visible custom packages, read once per tool call.</summary>
+    private ActionCatalog CatalogWith(IReadOnlyList<ActionPackage> visible) =>
+        visible.Count == 0 ? _actions : _actions.With(visible.Select(p => p.ToAction()));
+
+    private ActionCatalog Catalog() => CatalogWith(VisiblePackages());
 
     public object GetCostPerOrder(string? region, string? zone, string? deliveryType, string? startDate, string? endDate) =>
         Guarded(() =>
@@ -255,10 +296,11 @@ public sealed class CostToServeTools(
             var scopedRegion = ScopedRegion(region);
             var regions = scopedRegion is null ? data.Regions.ToArray() : [scopedRegion];
             var latest = LatestDecisions();
-            var (actions, _) = CombineActions(actionIds, Levers.None, _actions);
-            var plan = regions.ToDictionary(r => r, r => applyDecidedPlan ? PlanIds(r, latest) : []);
+            var catalog = Catalog();
+            var (actions, _) = CombineActions(actionIds, Levers.None, catalog);
+            var plan = regions.ToDictionary(r => r, r => applyDecidedPlan ? PlanIds(r, latest).Where(id => catalog.Find(id) is not null).ToArray() : []);
             var perRegion = regions.ToDictionary(r => r, r =>
-                CombineActions(string.Join(',', actions.Concat(plan[r])), explicitLevers, _actions, a => DecidedLevers(a, r, latest)).Levers);
+                CombineActions(string.Join(',', actions.Concat(plan[r])), explicitLevers, catalog, a => DecidedLevers(a, r, latest)).Levers);
             var s = engine.Scenario(perRegion, dieselChange, durationWeeks);
             var uniform = perRegion.Values.Distinct().Count() == 1;
             return new
@@ -267,8 +309,8 @@ public sealed class CostToServeTools(
                 DieselChangeUsdPerGallon = s.DieselShiftUsdPerGallon,
                 s.DurationWeeks,
                 Actions = actions,
-                DecidedPlan = applyDecidedPlan ? plan.ToDictionary(kv => kv.Key, kv => DescribeSettings(kv.Value, kv.Key, latest, includeFixed: true)) : null,
-                ActionSettings = regions.SelectMany(r => DescribeSettings(actions, r, latest).Select(d => regions.Length > 1 ? $"{r} {d}" : d)).ToArray(),
+                DecidedPlan = applyDecidedPlan ? plan.ToDictionary(kv => kv.Key, kv => DescribeSettings(catalog, kv.Value, kv.Key, latest, includeFixed: true)) : null,
+                ActionSettings = regions.SelectMany(r => DescribeSettings(catalog, actions, r, latest).Select(d => regions.Length > 1 ? $"{r} {d}" : d)).ToArray(),
                 Levers = DescribeLevers(s.Levers),
                 LeversByRegion = uniform ? null : perRegion.ToDictionary(kv => kv.Key, kv => DescribeLevers(kv.Value)),
                 FuelShockQuarterCostUsd = Math.Round(s.FuelShockQuarterCost),
@@ -301,8 +343,9 @@ public sealed class CostToServeTools(
             var scopedRegion = ScopedRegion(region);
             var regions = scopedRegion is null ? data.Regions.ToArray() : [scopedRegion];
             var latest = LatestDecisions();
-            var (actions, _) = CombineActions(actionIds, Levers.None, _actions);
-            var perRegion = regions.Select(r => CombineActions(actionIds, explicitLevers, _actions, a => DecidedLevers(a, r, latest)).Levers).ToArray();
+            var catalog = Catalog();
+            var (actions, _) = CombineActions(actionIds, Levers.None, catalog);
+            var perRegion = regions.Select(r => CombineActions(actionIds, explicitLevers, catalog, a => DecidedLevers(a, r, latest)).Levers).ToArray();
             var combined = perRegion.Aggregate(Levers.None, (a, l) => new Levers
             {
                 Batch = Math.Max(a.Batch, l.Batch),
@@ -316,7 +359,7 @@ public sealed class CostToServeTools(
             return new
             {
                 Actions = actions,
-                ActionSettings = regions.SelectMany(r => DescribeSettings(actions, r, latest).Select(d => regions.Length > 1 ? $"{r} {d}" : d)).ToArray(),
+                ActionSettings = regions.SelectMany(r => DescribeSettings(catalog, actions, r, latest).Select(d => regions.Length > 1 ? $"{r} {d}" : d)).ToArray(),
                 Levers = DescribeLevers(combined),
                 Guardrail = DescribeGuardrail(CheckAll(perRegion)),
                 Note = "Express-within-3-hours is a modeled estimate, not delivery telemetry.",
@@ -349,7 +392,7 @@ public sealed class CostToServeTools(
         var resolved = new List<string>();
         foreach (var id in ids)
         {
-            var action = catalog.Find(id) ?? throw new ArgumentException($"Unknown action '{id}'. Use playbook action IDs A1 to A6.");
+            var action = catalog.Find(id) ?? throw new ArgumentException($"Unknown action '{id}'. Use playbook action IDs A1 to A6 or a custom package ID you can see.");
             if (resolved.Contains(action.Id))
             {
                 continue;
@@ -380,50 +423,71 @@ public sealed class CostToServeTools(
             var savingsRegions = scopedRegion is null ? data.Regions.ToArray() : [scopedRegion];
             var visible = data.Regions.Where(caller.CanSee).ToArray();
             var latest = LatestDecisions();
+            var packageList = VisiblePackages();
+            var catalog = CatalogWith(packageList);
+
+            // One row per playbook action, then the custom packages for the region shown (each applies to its own region only).
+            object Row(string actionId, string action, string effect, string customerImpact, string approver, string guardrailRule,
+                string[] rowRegions, ActionPackage? package)
+            {
+                var modeled = catalog.Find(actionId);
+                var byRegion = rowRegions.Select(r => RegionDecision(actionId, modeled, r, latest)).ToArray();
+                var focus = scopedRegion is null ? null : byRegion.SingleOrDefault(b => b.Region == scopedRegion);
+                var levers = focus?.Levers ?? modeled?.Levers;
+                var check = levers is null ? null : CostEngine.CheckGuardrail(levers);
+                return new
+                {
+                    ActionId = actionId,
+                    Action = action,
+                    Effect = effect,
+                    CustomerImpact = customerImpact,
+                    Approver = approver,
+                    GuardrailRule = guardrailRule,
+                    ModeledLevers = levers is null ? null : DescribeLevers(levers),
+                    Levers = levers,
+                    LeverSource = modeled?.Source,
+                    LeverMapping = package is not null ? "custom package"
+                        : modeled is null ? "not modeled"
+                        : modeled.LeversDerivedFromPlaybookText ? "derived from playbook text (approximation)" : "reference demo",
+                    EstimatedWeeklySavingUsd = modeled is null
+                        ? (double?)null
+                        : Math.Round(savingsRegions.Intersect(rowRegions).Sum(r => engine.WeeklySaving(DecidedLevers(modeled, r, latest), [r]))),
+                    GuardrailPassed = check?.Passed,
+                    GuardrailFindings = check?.Findings.Select(f => f.Code).ToArray() ?? [],
+                    Region = focus?.Region,
+                    Status = focus?.Status,
+                    Setting = focus?.Setting,
+                    CanAmendSetting = focus?.CanAmendSetting ?? false,
+                    LatestDecision = focus?.LatestDecision,
+                    LatestDecisionBy = focus?.LatestDecisionBy,
+                    LatestDecisionAt = focus?.LatestDecisionAt,
+                    LatestDecisionReason = focus?.LatestDecisionReason,
+                    AvailableDecisions = focus?.AvailableDecisions ?? [],
+                    ByRegion = byRegion,
+                    IsPackage = package is not null,
+                    PackageRegion = package?.Region,
+                    CreatedBy = package?.CreatedBy,
+                    CreatedAt = package?.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                };
+            }
+
+            var rows = data.Playbook
+                .Select(p => Row(p.ActionId, p.Action, p.Effect, p.CustomerImpact, p.Approver, p.Guardrail, visible, null))
+                .Concat(packageList
+                    .Where(pk => scopedRegion is null || data.CanonicalRegion(pk.Region) == scopedRegion)
+                    .OrderBy(pk => pk.CreatedAt)
+                    .Select(pk => Row(pk.Id, pk.Name, pk.Summary, "Not rated", "Fulfillment Finance",
+                        "Keep under-3-hour promise for at least 80% of Express orders", [data.CanonicalRegion(pk.Region)], pk)))
+                .ToArray();
             return new
             {
                 DecisionRegion = scopedRegion,
                 SavingsScope = scopedRegion ?? "Network",
                 SavingsNote = "Each saving is for that action alone, at current-week volumes, using each region's decided setting. " +
                               "Savings are not additive; use run_scenario to model actions together. Decisions are per region: " +
-                              (scopedRegion is null ? "see ByRegion." : $"Status and AvailableDecisions are for {scopedRegion}."),
-                Actions = data.Playbook.Select(p =>
-                {
-                    var modeled = _actions.Find(p.ActionId);
-                    var byRegion = visible.Select(r => RegionDecision(p.ActionId, modeled, r, latest)).ToArray();
-                    var focus = scopedRegion is null ? null : byRegion.Single(b => b.Region == scopedRegion);
-                    var levers = focus?.Levers ?? modeled?.Levers;
-                    var check = levers is null ? null : CostEngine.CheckGuardrail(levers);
-                    return new
-                    {
-                        p.ActionId,
-                        p.Action,
-                        p.Effect,
-                        p.CustomerImpact,
-                        p.Approver,
-                        GuardrailRule = p.Guardrail,
-                        ModeledLevers = levers is null ? null : DescribeLevers(levers),
-                        Levers = levers,
-                        LeverSource = modeled?.Source,
-                        LeverMapping = modeled is null ? "not modeled"
-                            : modeled.LeversDerivedFromPlaybookText ? "derived from playbook text (approximation)" : "reference demo",
-                        EstimatedWeeklySavingUsd = modeled is null
-                            ? (double?)null
-                            : Math.Round(savingsRegions.Sum(r => engine.WeeklySaving(DecidedLevers(modeled, r, latest), [r]))),
-                        GuardrailPassed = check?.Passed,
-                        GuardrailFindings = check?.Findings.Select(f => f.Code).ToArray() ?? [],
-                        Region = focus?.Region,
-                        Status = focus?.Status,
-                        Setting = focus?.Setting,
-                        CanAmendSetting = focus?.CanAmendSetting ?? false,
-                        LatestDecision = focus?.LatestDecision,
-                        LatestDecisionBy = focus?.LatestDecisionBy,
-                        LatestDecisionAt = focus?.LatestDecisionAt,
-                        LatestDecisionReason = focus?.LatestDecisionReason,
-                        AvailableDecisions = focus?.AvailableDecisions ?? [],
-                        ByRegion = byRegion,
-                    };
-                }).ToArray(),
+                              (scopedRegion is null ? "see ByRegion." : $"Status and AvailableDecisions are for {scopedRegion}.") +
+                              " Custom packages (IDs like P-SE-01) apply only in the region they were created for.",
+                Actions = rows,
                 Notice = DataNotice,
             };
         }, scopedRegionHint: region);
@@ -490,7 +554,8 @@ public sealed class CostToServeTools(
                 };
             }
 
-            var (actionIds, levers) = CombineActions(string.Join(',', executed.Select(d => d.ActionId)), Levers.None, _actions, a => DecidedLevers(a, region, latest));
+            var catalog = Catalog();
+            var (actionIds, levers) = CombineActions(string.Join(',', executed.Select(d => d.ActionId).Where(id => catalog.Find(id) is not null)), Levers.None, catalog, a => DecidedLevers(a, region, latest));
             var zones = data.ZonesIn(region);
             var week = data.WeeklyInputs.CurrentWeek;
             var inputs = zones.Select(z => data.GetZoneInputs(week, z.Zone, DeliveryType.Express)).ToArray();
@@ -505,7 +570,7 @@ public sealed class CostToServeTools(
                     d.ActionId,
                     ExecutedBy = d.Actor,
                     ExecutedAt = d.Timestamp.ToString("yyyy-MM-ddTHH:mm:ssZ"),
-                    Setting = DescribeSettings([d.ActionId], region, latest).FirstOrDefault(),
+                    Setting = DescribeSettings(catalog, [d.ActionId], region, latest).FirstOrDefault(),
                 }),
                 ModeledLevers = DescribeLevers(levers),
                 PilotZones = zones.Take(PilotModel.PilotZoneCount).Select(z => z.Zone),
@@ -547,8 +612,17 @@ public sealed class CostToServeTools(
         string actionId, string decision, string? reason, double? setting, string? region, CancellationToken cancellationToken) =>
         GuardedAsync(async () =>
         {
-            var playbook = data.Playbook.FirstOrDefault(p => string.Equals(p.ActionId, actionId?.Trim(), StringComparison.OrdinalIgnoreCase))
-                ?? throw new ArgumentException($"Unknown action '{actionId}'. Use an action ID from the playbook (A1 to A6).");
+            var playbook = data.Playbook.FirstOrDefault(p => string.Equals(p.ActionId, actionId?.Trim(), StringComparison.OrdinalIgnoreCase));
+            var packageList = VisiblePackages();
+            var package = playbook is null ? packageList.FirstOrDefault(p => string.Equals(p.Id, actionId?.Trim(), StringComparison.OrdinalIgnoreCase)) : null;
+            if (playbook is null && package is null)
+            {
+                throw new ArgumentException($"Unknown action '{actionId}'. Use an action ID from the playbook (A1 to A6) or a custom package ID you can see.");
+            }
+
+            var id = playbook?.ActionId ?? package!.Id;
+            var actionName = playbook?.Action ?? package!.Name;
+            var catalog = CatalogWith(packageList);
             if (!Enum.TryParse<DecisionKind>(decision?.Trim(), ignoreCase: true, out var kind) || !Enum.IsDefined(kind)
                 || int.TryParse(decision, out _))
             {
@@ -568,16 +642,18 @@ public sealed class CostToServeTools(
                     throw new ArgumentException("A setting can only be given when proposing or approving.");
             }
 
-            var modeled = _actions.Find(playbook.ActionId);
+            var modeled = catalog.Find(id);
             var spec = modeled?.Setting;
             if (setting is not null && spec is null)
             {
-                throw new ArgumentException($"{playbook.ActionId} has no adjustable setting; it is applied as defined in the playbook.");
+                throw new ArgumentException(package is not null
+                    ? $"{id} is a custom package; it is decided as defined, with no setting to change."
+                    : $"{id} has no adjustable setting; it is applied as defined in the playbook.");
             }
 
             var all = LatestDecisions();
-            var decisionRegion = ResolveDecisionRegion(region, playbook.ActionId, kind, all);
-            var latest = Latest(all, decisionRegion, playbook.ActionId);
+            var decisionRegion = package is not null ? PackageRegion(package, region) : ResolveDecisionRegion(region, id, kind, all);
+            var latest = Latest(all, decisionRegion, id);
             var current = CurrentSetting(modeled, latest);
             var resolved = kind == DecisionKind.Reject || spec is null ? null : setting is { } requested ? Math.Round(requested, 4) : current;
             var levers = modeled?.WithSetting(resolved);
@@ -589,10 +665,10 @@ public sealed class CostToServeTools(
             {
                 var status = DecisionWorkflow.Status(latest?.Decision);
                 throw new DecisionConflictException(next.Count == 0
-                    ? $"{playbook.ActionId} is already {status.ToLowerInvariant()} for {decisionRegion}; no further decisions until the demo is reset."
+                    ? $"{id} is already {status.ToLowerInvariant()} for {decisionRegion}; no further decisions until the demo is reset."
                     : canAmend
-                        ? $"{playbook.ActionId} is already {status.ToLowerInvariant()} for {decisionRegion} at {spec!.Format(current!.Value)}. To change it, give a different setting."
-                        : $"{playbook.ActionId} is {status.ToLowerInvariant()} for {decisionRegion}, so it cannot be {(kind == DecisionKind.Propose ? "proposed" : kind.Verb() + "d")} now. " +
+                        ? $"{id} is already {status.ToLowerInvariant()} for {decisionRegion} at {spec!.Format(current!.Value)}. To change it, give a different setting."
+                        : $"{id} is {status.ToLowerInvariant()} for {decisionRegion}, so it cannot be {(kind == DecisionKind.Propose ? "proposed" : kind.Verb() + "d")} now. " +
                           $"Next steps: {string.Join(" or ", next.Select(k => k.Verb()))}.");
             }
 
@@ -600,15 +676,15 @@ public sealed class CostToServeTools(
             if (kind is DecisionKind.Approve or DecisionKind.Execute && check is { Passed: false })
             {
                 var at = resolved is { } r ? $" at {spec!.Format(r)}" : string.Empty;
-                throw new ScopeDeniedException($"{playbook.ActionId}{at} breaks the Express 3-hour guardrail and cannot be {kind.ToString().ToLowerInvariant()}d for {decisionRegion}.");
+                throw new ScopeDeniedException($"{id}{at} breaks the Express 3-hour guardrail and cannot be {kind.ToString().ToLowerInvariant()}d for {decisionRegion}.");
             }
 
             var settingText = resolved is { } value
                 ? spec!.Format(value) + (current is { } was && was != value ? $" (was {(was * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%)" : string.Empty)
                 : null;
             var proposal = new DecisionProposal(
-                playbook.ActionId,
-                playbook.Action,
+                id,
+                actionName,
                 kind,
                 caller.DisplayName,
                 cleanReason,
@@ -617,7 +693,7 @@ public sealed class CostToServeTools(
                 settingText,
                 decisionRegion);
 
-            System.Diagnostics.Activity.Current?.SetTag(AgentTelemetry.DecisionTag, $"{playbook.ActionId}:{kind.ToString().ToLowerInvariant()}:{decisionRegion}");
+            System.Diagnostics.Activity.Current?.SetTag(AgentTelemetry.DecisionTag, $"{id}:{kind.ToString().ToLowerInvariant()}:{decisionRegion}");
             if (!await confirmer.ConfirmAsync(proposal, cancellationToken).ConfigureAwait(false))
             {
                 return (object)new
@@ -627,7 +703,7 @@ public sealed class CostToServeTools(
                 };
             }
 
-            var entry = new DecisionEntry(_time.GetUtcNow(), playbook.ActionId, caller.DisplayName, kind, cleanReason, resolved, decisionRegion);
+            var entry = new DecisionEntry(_time.GetUtcNow(), id, caller.DisplayName, kind, cleanReason, resolved, decisionRegion);
             decisionLog.Append(entry);
             return new
             {
@@ -640,6 +716,106 @@ public sealed class CostToServeTools(
                 entry.Reason,
                 Setting = settingText,
                 SettingValue = resolved,
+            };
+        });
+
+    /// <summary>A package's region. Decisions on a package apply there only; naming another region is an error.</summary>
+    private string PackageRegion(ActionPackage package, string? requested)
+    {
+        var home = data.CanonicalRegion(package.Region);
+        EnsureCanSee(home);
+        var wantsDefault = string.IsNullOrWhiteSpace(requested)
+            || requested.Trim().Equals("network", StringComparison.OrdinalIgnoreCase)
+            || requested.Trim().Equals("all", StringComparison.OrdinalIgnoreCase);
+        if (!wantsDefault && data.CanonicalRegion(requested!) != home)
+        {
+            throw new ArgumentException($"{package.Id} is a {home} package; decisions on it apply to {home} only.");
+        }
+
+        return home;
+    }
+
+    /// <summary>
+    /// Regional ops packages a combination of levers as one custom action for their region and proposes it to Finance.
+    /// Nothing is stored unless the person confirms; then the package and its proposal are logged together.
+    /// </summary>
+    public Task<object> ProposePackageAsync(string? name, string? reason, Levers levers, CancellationToken cancellationToken) =>
+        GuardedAsync(async () =>
+        {
+            if (caller.Role != DemoRole.RegionalOps)
+            {
+                throw new ScopeDeniedException($"{caller.DisplayName} ({caller.Role}) cannot create packages. Regional Delivery Ops (RegionalOps) packages and proposes.");
+            }
+
+            if (packages is null)
+            {
+                throw new ArgumentException("Custom packages are not available here.");
+            }
+
+            if (caller.IsNetworkWide || caller.AllowedRegions.Count != 1)
+            {
+                throw new ArgumentException("A package is created for one region; your scope has more than one.");
+            }
+
+            var cleanName = (name ?? string.Empty).Trim();
+            if (cleanName.Length is 0 or > ActionPackage.MaxNameLength)
+            {
+                throw new ArgumentException($"Give the package a name of 1 to {ActionPackage.MaxNameLength} characters.");
+            }
+
+            levers.Validate();
+            if (!ActionPackage.HasAny(levers))
+            {
+                throw new ArgumentException("Set at least one lever to package.");
+            }
+
+            var region = data.CanonicalRegion(caller.AllowedRegions[0]);
+            var check = CostEngine.CheckGuardrail(levers);
+            var saving = Math.Round(engine.WeeklySaving(levers, [region]));
+            var cleanReason = reason?.Trim() ?? string.Empty;
+            var id = PackageIds.Next(region, packages.ReadAll());
+            var summary = ActionPackage.Describe(levers);
+            var proposal = new DecisionProposal(
+                id, cleanName, DecisionKind.Propose, caller.DisplayName, cleanReason, saving,
+                check.Findings.Select(f => f.Message).ToArray(), summary, region);
+
+            System.Diagnostics.Activity.Current?.SetTag(AgentTelemetry.DecisionTag, $"{id}:propose:{region}");
+            if (!await confirmer.ConfirmAsync(proposal, cancellationToken).ConfigureAwait(false))
+            {
+                return (object)new { Status = "not_recorded", Message = "The user declined in the confirmation prompt. No package was created." };
+            }
+
+            // IDs are sequential per region; if another proposal took this one meanwhile, take the next.
+            ActionPackage package;
+            for (var attempt = 0; ; attempt++)
+            {
+                package = new ActionPackage(id, cleanName, region, levers, caller.DisplayName, _time.GetUtcNow());
+                try
+                {
+                    packages.Add(package);
+                    break;
+                }
+                catch (InvalidOperationException) when (attempt < 3)
+                {
+                    id = PackageIds.Next(region, packages.ReadAll());
+                }
+            }
+
+            var entry = new DecisionEntry(_time.GetUtcNow(), package.Id, caller.DisplayName, DecisionKind.Propose, cleanReason, null, region);
+            decisionLog.Append(entry);
+            return new
+            {
+                Status = "recorded",
+                ActionId = package.Id,
+                package.Name,
+                package.Region,
+                Levers = summary,
+                Decision = "propose",
+                entry.Actor,
+                Timestamp = entry.Timestamp.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                entry.Reason,
+                EstimatedWeeklySavingUsd = saving,
+                Guardrail = DescribeGuardrail(check),
             };
         });
 
@@ -660,8 +836,9 @@ public sealed class CostToServeTools(
         latest.Where(kv => kv.Key.Region == region && kv.Value.Decision is DecisionKind.Approve or DecisionKind.Execute)
             .Select(kv => kv.Key.ActionId).Order(StringComparer.Ordinal).ToArray();
 
-    private string[] DescribeSettings(IEnumerable<string> actionIds, string region, IReadOnlyDictionary<(string, string), DecisionEntry> latest, bool includeFixed = false) =>
-        actionIds.Select(id => _actions.Find(id)).OfType<DemoAction>()
+    private static string[] DescribeSettings(
+        ActionCatalog catalog, IEnumerable<string> actionIds, string region, IReadOnlyDictionary<(string, string), DecisionEntry> latest, bool includeFixed = false) =>
+        actionIds.Select(id => catalog.Find(id)).OfType<DemoAction>()
             .Where(a => includeFixed || a.Setting is not null)
             .Select(a => a.Setting is { } spec
                 ? $"{a.Id}: {spec.Format(CurrentSetting(a, Latest(latest, region, a.Id))!.Value)}"

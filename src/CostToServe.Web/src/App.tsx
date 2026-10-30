@@ -8,6 +8,7 @@ import { TrustCenter } from "./components/TrustCenter";
 import { FuelPanel } from "./components/FuelPanel";
 import { LeversPanel } from "./components/LeversPanel";
 import { Outcomes } from "./components/Outcomes";
+import { PackageForm } from "./components/PackageForm";
 import { OutcomesBar, type DrawerView } from "./components/OutcomesBar";
 import { changesQuestion, modelChanges, settingsSummary, type ModelSettings } from "./modelSync";
 import { NO_LEVERS, type Dashboard, type DecisionRecord, type Levers, type Persona, type Playbook, type ScenarioResult, type ExecutionResults } from "./types";
@@ -167,7 +168,14 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
   // The plan is each region's approved and executed actions; each applies only in its own region.
   const modeledRegions = useMemo(() => (region ? [region] : (dashboard?.regions ?? [])), [region, dashboard]);
   const singleRegion = modeledRegions.length === 1 ? modeledRegions[0] : null;
-  const defaults = useMemo(() => Object.fromEntries((dashboard?.actions ?? []).map((a) => [a.id, a.levers])), [dashboard]);
+  // Playbook actions take their levers from the dashboard; custom packages carry their own.
+  const defaults = useMemo(
+    () => ({
+      ...Object.fromEntries((playbook?.actions ?? []).flatMap((a) => (a.isPackage && a.levers ? [[a.actionId, a.levers]] : []))),
+      ...Object.fromEntries((dashboard?.actions ?? []).map((a) => [a.id, a.levers])),
+    }),
+    [dashboard, playbook],
+  );
   const plan = useMemo(() => planIn(playbook?.actions ?? [], modeledRegions, defaults), [playbook, modeledRegions, defaults]);
   const planKey = plan.map((p) => `${p.region}:${p.actionId}:${p.settingText}`).join(",");
   const waiting = useMemo(() => (dashboard && playbook ? waitingFor(dashboard.caller, playbook.actions) : []), [dashboard, playbook]);
@@ -461,30 +469,45 @@ function Studio({ auth, controls }: { auth: ApiAuth; controls: ReactNode }) {
                   </div>
                 </div>
                 {drawer === "model" && (
-                  <div className={`drawer-foot ${changes.length ? "pending" : ""}`} aria-live="polite">
-                    {changes.length === 0 ? (
-                      <p className="small muted">Changes here are instant and stay with you until you ask the agent about them.</p>
-                    ) : (
-                      <>
-                        <strong>
-                          You changed {changes.length} {changes.length === 1 ? "setting" : "settings"} · not shared with the agent yet
-                        </strong>
-                        <ul>
-                          {changes.map((c) => (
-                            <li key={c.key}>
-                              {c.label}: {c.from} → <strong>{c.to}</strong>
-                            </li>
-                          ))}
-                        </ul>
-                        <div className="drawer-foot-buttons">
-                          <button type="button" className="primary" onClick={askAboutChanges}>
-                            Ask the agent about {changes.length === 1 ? "this change" : "these changes"}
-                          </button>
-                          <button type="button" onClick={undoChanges}>
-                            Undo
-                          </button>
-                        </div>
-                      </>
+                  <div className={`drawer-foot ${changes.length ? "pending" : ""}`}>
+                    <div aria-live="polite">
+                      {changes.length === 0 ? (
+                        <p className="small muted">Changes here are instant and stay with you until you ask the agent about them.</p>
+                      ) : (
+                        <>
+                          <strong>
+                            You changed {changes.length} {changes.length === 1 ? "setting" : "settings"} · not shared with the agent yet
+                          </strong>
+                          <ul>
+                            {changes.map((c) => (
+                              <li key={c.key}>
+                                {c.label}: {c.from} → <strong>{c.to}</strong>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="drawer-foot-buttons">
+                            <button type="button" className="primary" onClick={askAboutChanges}>
+                              Ask the agent about {changes.length === 1 ? "this change" : "these changes"}
+                            </button>
+                            <button type="button" onClick={undoChanges}>
+                              Undo
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    {dashboard.caller.role === "RegionalOps" && (
+                      <PackageForm
+                        auth={auth}
+                        region={dashboard.caller.scope}
+                        levers={levers}
+                        onProposed={refreshDecisions}
+                        onOpen={(id) => {
+                          setDecisionRegion(dashboard.caller.scope);
+                          setDrawer("decisions");
+                          setTimeout(() => focusAction(id), 300);
+                        }}
+                      />
                     )}
                   </div>
                 )}

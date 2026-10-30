@@ -52,6 +52,11 @@ const LEVERS: {
 const diesel = (v: number) => `${v >= 0 ? "+" : "-"}$${Math.abs(v).toFixed(2)}/gal`;
 const isOff = (v: number | boolean) => v === 0 || v === false;
 
+/** The levers that are set, in words, for example "Batch Express 40%". */
+export function leverList(levers: Levers): string[] {
+  return LEVERS.filter((l) => !isOff(levers[l.key])).map((l) => `${l.label} ${l.show(levers[l.key])}`);
+}
+
 /** What changed between the settings last shared with the agent and the current ones, in words. */
 export function modelChanges(before: ModelSettings, after: ModelSettings): ModelChange[] {
   const changes: ModelChange[] = [];

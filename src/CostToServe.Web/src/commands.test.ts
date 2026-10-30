@@ -48,6 +48,12 @@ describe("parseCommand", () => {
     expect(parseCommand("/status B2")).toMatchObject({ kind: "invalid" });
   });
 
+  it("accepts custom package IDs", () => {
+    expect(parseCommand("/approve p-se-01")).toMatchObject({ kind: "decision", decision: "approve", actionId: "P-SE-01" });
+    expect(parseCommand("/execute P-SE-12")).toMatchObject({ kind: "decision", decision: "execute", actionId: "P-SE-12" });
+    expect(parseCommand("/approve P-SE")).toMatchObject({ kind: "invalid" });
+  });
+
   it("parses status and help", () => {
     expect(parseCommand("/status")).toEqual({ kind: "status", actionId: undefined });
     expect(parseCommand("/status a3")).toEqual({ kind: "status", actionId: "A3" });
@@ -59,5 +65,6 @@ describe("mentionedActions", () => {
   it("finds unique playbook IDs in order", () => {
     expect(mentionedActions("A1 plus A2 offset 88%; A1 keeps the guardrail. A12 and BA3 are not IDs.")).toEqual(["A1", "A2"]);
     expect(mentionedActions("No actions here.")).toEqual([]);
+    expect(mentionedActions("P-SE-01 bundles A1 and a fee; approve P-SE-01.")).toEqual(["P-SE-01", "A1"]);
   });
 });

@@ -8,6 +8,7 @@ export type ChatCommand =
 
 export const COMMAND_HELP = [
   "/propose A1 [5%] - propose an action, optionally at another setting (regional ops)",
+  "Custom packages work the same way by ID, for example /approve P-SE-01 (no setting; Finance decides the whole package).",
   "/approve A1 [region] [5%] [reason] - approve an action for a region, or change an approval's setting (finance)",
   "/reject A1 [region] <reason> - reject an action; a reason is required (finance)",
   "/revoke A1 [region] <reason> - withdraw an approval before it is executed (finance)",
@@ -17,7 +18,7 @@ export const COMMAND_HELP = [
   "/help - show these commands",
 ];
 
-const ACTION = /^A[1-6]$/i;
+const ACTION = /^(A[1-6]|P-[A-Z]{1,3}-\d{2,})$/i;
 const PERCENT = /^(\d+(?:\.\d+)?)%$/;
 const REGIONS = ["Southeast", "Midwest", "West"];
 
@@ -47,7 +48,7 @@ export function parseCommand(input: string): ChatCommand | null {
   }
   if (verb === "status") {
     if (rawId && !ACTION.test(rawId)) {
-      return { kind: "invalid", message: `Unknown action '${rawId}'. Use A1 to A6.` };
+      return { kind: "invalid", message: `Unknown action '${rawId}'. Use A1 to A6 or a package ID such as P-SE-01.` };
     }
     return region ? { kind: "status", actionId, region } : { kind: "status", actionId };
   }
@@ -73,8 +74,8 @@ export function parseCommand(input: string): ChatCommand | null {
   };
 }
 
-/** Playbook action IDs mentioned in agent text, in order of first mention. */
+/** Playbook action and package IDs mentioned in agent text, in order of first mention. */
 export function mentionedActions(text: string): string[] {
-  const ids = [...text.matchAll(/\bA([1-6])\b/g)].map((m) => `A${m[1]}`);
+  const ids = [...text.matchAll(/\b(A[1-6]|P-[A-Z]{1,3}-\d{2,})\b/g)].map((m) => m[1].toUpperCase());
   return [...new Set(ids)];
 }

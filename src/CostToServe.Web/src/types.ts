@@ -142,6 +142,11 @@ export interface PlaybookAction {
   canAmendSetting: boolean;
   /** Decision state in every region the caller can see. */
   byRegion: RegionDecision[];
+  /** True for a custom package (ID like P-SE-01): a bundle of lever settings decided as one action, in its own region only. */
+  isPackage?: boolean;
+  packageRegion?: string | null;
+  createdBy?: string | null;
+  createdAt?: string | null;
 }
 
 export interface ActionSetting {

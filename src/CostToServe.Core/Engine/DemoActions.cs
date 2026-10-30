@@ -13,8 +13,9 @@ public sealed record ActionSettingSpec(string Lever, string Label, double Defaul
     public string Format(double value) => $"{Label} {(Lever == "split" ? "-" : string.Empty)}{(value * 100).ToString("0.#", CultureInfo.InvariantCulture)}%";
 }
 
-/// <summary>An approved playbook action and the engine levers that model it.</summary>
-public sealed record DemoAction(string Id, Levers Levers, string Source)
+/// <summary>An approved playbook action (or a custom package) and the engine levers that model it.</summary>
+/// <param name="Adjustable">False for custom packages: they are decided as defined, with no setting to change.</param>
+public sealed record DemoAction(string Id, Levers Levers, string Source, bool Adjustable = true)
 {
     /// <summary>True when the settings are not from the reference demo but derived from playbook text.</summary>
     public bool LeversDerivedFromPlaybookText => Source.StartsWith("derived", StringComparison.OrdinalIgnoreCase);
@@ -27,6 +28,11 @@ public sealed record DemoAction(string Id, Levers Levers, string Source)
     {
         get
         {
+            if (!Adjustable)
+            {
+                return null;
+            }
+
             var set = new (string Lever, string Label, double Value, double Max)[]
             {
                 ("batch", "Batch Express", Levers.Batch, LeverLimits.BatchMax),
@@ -87,6 +93,10 @@ public sealed class ActionCatalog
         new("A5", new Levers { Cap = true }, "derived from playbook effect text (surcharge capped at contract index)"),
         new("A6", new Levers { Pickup = 0.03 }, "derived from playbook effect text (shift 3% to Pickup)"),
     ]);
+
+    /// <summary>This catalog plus extra actions (custom packages); IDs already in the catalog are ignored.</summary>
+    public ActionCatalog With(IEnumerable<DemoAction> extra) =>
+        new([.. All, .. extra.Where(e => Find(e.Id) is null)]);
 
     public DemoAction? Find(string? id) =>
         All.FirstOrDefault(a => string.Equals(a.Id, id?.Trim(), StringComparison.OrdinalIgnoreCase));

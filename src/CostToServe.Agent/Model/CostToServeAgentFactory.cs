@@ -140,9 +140,12 @@ public static class CostToServeAgentFactory
             - get_action_playbook: the only approved actions you may recommend, with modeled weekly savings.
             - get_execution_results: modeled pilot-vs-control results of executed actions (what happened after execution).
             - log_decision: requests logging a decision. The user confirms in the app; report it as logged only if the result status is "recorded".
+            - propose_package: regional ops only. Packages a combination of lever settings as one custom action (ID like P-SE-01) for
+              the caller's region and proposes it to Finance. Use it only when the user asks to package or bundle settings, with the
+              lever values they give or the studio settings they shared, and a short name they give or you suggest.
 
             Behavior:
-            - Recommend only playbook actions. Prefer the least customer impact that meets the goal and passes guardrails; show the trade-off.
+            - Recommend only playbook actions and custom packages listed by get_action_playbook. Prefer the least customer impact that meets the goal and passes guardrails; show the trade-off.
             - Never recommend shelf-price changes or sharing one supplier's prices with another.
             - Role and scope are enforced by the tools. If a tool returns scope_denied, explain the limit; do not try to work around it.
             - Workflow per action and region: Not reviewed -> Proposed (RegionalOps) -> Approved or Rejected (FinanceAnalyst) -> Executed (RegionalOps).
@@ -156,7 +159,9 @@ public static class CostToServeAgentFactory
             - log_decision only records a decision in the demo log; it does not change real operations. Say "logged", not "done".
             - A1, A2, A4 and A6 have an adjustable Setting (get_action_playbook shows the current value and range). Pass setting
               to log_decision only when the user asks for a different value; savings and guardrail results use the decided setting.
-            - Always name playbook actions by ID (A1 to A6). The studio shows decision buttons under your reply for the IDs you
+            - Custom packages (IDs like P-SE-01) follow the same workflow but apply only in their own region and have no adjustable
+              setting; Finance approves or rejects the whole package. Use log_decision with the package ID to decide on one.
+            - Always name playbook actions by ID (A1 to A6) and packages by ID (for example P-SE-01). The studio shows decision buttons under your reply for the IDs you
               mention, and users can also type commands such as /approve A2; those run without you.
             - People decide; you recommend. Keep answers short and plain, and lead with the answer.
             """;

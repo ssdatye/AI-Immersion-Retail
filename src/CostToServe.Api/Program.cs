@@ -35,7 +35,7 @@ var credential = new DefaultAzureCredential(new DefaultAzureCredentialOptions
 
 if (command == "reset")
 {
-    (string, Func<(int, int)>)? azureReset = string.IsNullOrWhiteSpace(options.Cosmos.Endpoint)
+    (string, Func<(int, int, int)>)? azureReset = string.IsNullOrWhiteSpace(options.Cosmos.Endpoint)
         ? null
         : ($"{options.Cosmos.Endpoint} / {options.Cosmos.Database}", () =>
         {
@@ -59,6 +59,7 @@ SeedDataSet seed;
 string seedVersion;
 IDecisionLog decisionLog;
 ITranscriptStore transcripts;
+IPackageStore packages;
 if (options.IsAzure)
 {
     // Cost facts from Azure SQL; decisions and transcripts in Cosmos DB. All through the app's managed identity.
@@ -69,6 +70,7 @@ if (options.IsAzure)
     builder.Services.AddSingleton(cosmos);
     decisionLog = await CosmosDecisionLog.LoadAsync(cosmos);
     transcripts = new CosmosTranscriptStore(cosmos);
+    packages = new CosmosPackageStore(cosmos.Scenarios);
 }
 else
 {
@@ -85,6 +87,7 @@ else
     new LocalDemoState(paths.SeedDirectory, paths.LocalStateDirectory).EnsureInitialized();
     decisionLog = new CsvDecisionLog(paths.LocalStateDirectory);
     transcripts = new JsonlTranscriptStore(paths.LocalStateDirectory);
+    packages = new JsonlPackageStore(paths.LocalStateDirectory);
 }
 
 var foundry = builder.Configuration.GetSection(FoundryOptions.SectionName).Get<FoundryOptions>() ?? new();
@@ -107,7 +110,7 @@ if (entra.IsConfigured)
 
 var actionCatalog = ActionCatalog.LoadOrDefault(paths.ActionConfigFile);
 builder.Services.AddSingleton(new StudioServices(
-    seed, seedVersion, decisionLog, foundry, credential, actionCatalog, transcripts, options.IsAzure ? "azure" : "csv"));
+    seed, seedVersion, decisionLog, foundry, credential, actionCatalog, transcripts, options.IsAzure ? "azure" : "csv", packages));
 builder.Services.AddProblemDetails();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 

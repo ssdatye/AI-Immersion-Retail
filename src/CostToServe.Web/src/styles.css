@@ -175,6 +175,12 @@ main {
   color: var(--red);
 }
 
+.tag.package {
+  background: #ede9fe;
+  color: #5b21b6;
+  font-weight: 600;
+}
+
 svg .grid {
   stroke: var(--line);
 }
@@ -1738,7 +1744,8 @@ input[type="range"].has-floor {
 }
 
 .drawer-foot.pending strong {
-  color: var(--amber);
+  /* Darker than --amber: the footer's grey background needs it for 4.5:1. */
+  color: #92400e;
 }
 
 .drawer-foot ul {
@@ -1760,6 +1767,50 @@ input[type="range"].has-floor {
 .drawer-foot-buttons button {
   min-height: 32px;
   font-weight: 600;
+}
+
+/* Regional ops bundles tuned levers into one custom package for Finance. */
+.package-bar {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.package-bar > button {
+  min-height: 32px;
+  font-weight: 600;
+  width: 100%;
+}
+
+.package-done {
+  color: var(--green);
+  margin: 0 0 6px;
+}
+
+.package-form {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--line);
+}
+
+.drawer-foot .package-form > strong {
+  color: #5b21b6;
+}
+
+.package-form label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.package-form input {
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
+.package-form ul {
+  max-height: none;
 }
 
 /* Proof under each answer: a summary that expands to the tool-call chain. */
