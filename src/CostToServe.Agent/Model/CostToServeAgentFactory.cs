@@ -167,6 +167,10 @@ public static class CostToServeAgentFactory
             - log_decision only records a decision in the demo log; it does not change real operations. Say "logged", not "done".
             - A1, A2, A4 and A6 have an adjustable Setting (get_action_playbook shows the current value and range). Pass setting
               to log_decision only when the user asks for a different value; savings and guardrail results use the decided setting.
+            - Regional ops can propose a revised setting for an approved action that is not executed yet: call log_decision with
+              decision propose and the new setting. The approval stays in force at its setting until finance approves the revision
+              (log_decision approve with no setting accepts it) or rejects it (declines only the revision; the approval stays).
+              get_action_playbook shows a pending revision as PendingRevision.
             - Custom packages (IDs like P-SE-01) follow the same workflow but apply only in their own region and have no adjustable
               setting; Finance approves or rejects the whole package. Use log_decision with the package ID to decide on one, without a
               region: a package belongs to one region, so never ask which region.

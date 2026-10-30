@@ -6,7 +6,7 @@ ms.date: 2026-10-30
 
 ## Overview
 
-The evaluation asks the agent 35 demo questions as Dana and as Luis and scores every answer two ways:
+The evaluation asks the agent 38 demo questions as Dana and as Luis and scores every answer two ways:
 
 * **Deterministic checks**, computed by the runner without a model: did the agent call the right tools with the right arguments, quote the engine's numbers, quote only numbers that come from tools, and log decisions only when allowed?
 * **Foundry judges**, LLM-graded in the isolated Foundry project `proj-evals`: task adherence, tool-call accuracy, intent resolution and groundedness.
@@ -74,7 +74,7 @@ A first correction made the agent ask for a region even when only one region had
 
 ### Revision of October 30, 2026
 
-The golden set grew from 27 to 35 cases to match the demo as it now runs: the studio's five question chips word for word, the exact message "Ask the agent about these changes" sends (change list plus studio settings), custom packages (Luis proposes one by chat, Dana approves one, Dana may not create one), what is waiting for Finance, a fuel forecast the agent has no data for, and a prompt-injection attempt. The new cases found these problems:
+The golden set grew from 27 to 35 cases to match the demo as it now runs: the studio's five question chips word for word, the exact message "Ask the agent about these changes" sends (change list plus studio settings), custom packages (Luis proposes one by chat, Dana approves one, Dana may not create one), what is waiting for Finance, a fuel forecast the agent has no data for, and a prompt-injection attempt. Three more cases cover revisions of an approved action (Luis proposes 30% instead of the approved 20%; Dana approves or declines it), added with that workflow, making 38. The new cases found these problems:
 
 | Finding | Fix |
 |---|---|

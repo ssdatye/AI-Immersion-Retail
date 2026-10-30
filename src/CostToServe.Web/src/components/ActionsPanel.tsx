@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../api";
 import type { ApiAuth } from "../auth";
 import { toPercent, usdCompact } from "../format";
-import type { WaitingItem } from "../pending";
+import { waitsFor, type WaitingItem } from "../pending";
 import type { Caller, DecisionRecord, ExecutionResults, Playbook, PlaybookAction } from "../types";
 import { ExecutionResultsView } from "./ExecutionResultsView";
 
@@ -41,6 +41,11 @@ export const when = (iso: string) => {
 
 /** What the caller is waiting for when they have no step to take. */
 function waitingHint(action: PlaybookAction, isFinance: boolean) {
+  if (action.pendingRevision) {
+    return isFinance
+      ? `Approve ${toPercent(action.pendingRevision.value)}% or decline to keep ${action.setting ? `${toPercent(action.setting.value)}%` : "the approved setting"}.`
+      : "Your revision is waiting for Finance. Executing now runs the approved setting.";
+  }
   switch (action.status) {
     case "Executed":
       return "Done. Reset the demo to start over.";
@@ -61,7 +66,7 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
   // Draft settings in percent, per action, until a decision is logged.
   const [drafts, setDrafts] = useState<Record<string, number>>({});
   const isFinance = caller.canApprove;
-  const needsYou = (a: PlaybookAction) => (isFinance ? a.status === "Proposed" : a.status === "Approved");
+  const needsYou = (a: PlaybookAction) => waitsFor(caller, a);
 
   const decide = async (actionId: string, decision: Decision, why?: string, settingPct?: number) => {
     setBusy(actionId);
@@ -153,7 +158,21 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
             const changed = editable && draft !== current;
             // Proposing or approving sends the draft only when it differs; otherwise the server keeps the current setting.
             const settingFor = (d: Decision) => (changed && (d === "propose" || d === "approve") ? draft : undefined);
-            const amendTo = a.canAmendSetting && changed ? (a.status === "Approved" ? "approve" : "propose") : null;
+            const revision = a.pendingRevision ?? null;
+            // Regional ops revises an approved action by proposing a different setting; the approval stays in force meanwhile.
+            const revising = !isFinance && a.status === "Approved";
+            const amendTo = a.canAmendSetting && changed && !revision ? (a.status === "Approved" ? "approve" : "propose") : null;
+            const shown = available.filter((d) => !(d === "propose" && revising && !changed));
+            const label = (d: Decision) =>
+              d === "reject" && revision
+                ? "Decline revision"
+                : d === "reject" && a.status === "Approved"
+                  ? "Revoke"
+                  : d === "approve" && revision && settingFor(d) === undefined
+                    ? `Approve ${toPercent(revision.value)}%`
+                    : d === "propose" && revising
+                      ? `Propose ${draft}% instead`
+                      : `${d[0].toUpperCase() + d.slice(1)}${settingFor(d) !== undefined ? ` at ${draft}%` : ""}`;
             return (
               <tr
                 key={a.actionId}
@@ -205,6 +224,12 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
                     </div>
                   )}
                   {a.latestDecisionReason && <div className="muted small">“{a.latestDecisionReason}”</div>}
+                  {revision && (
+                    <div className="revision small">
+                      Revision proposed: <strong>{revision.text}</strong> by {revision.by} · {when(revision.at)}
+                      {revision.reason ? ` · “${revision.reason}”` : ""}
+                    </div>
+                  )}
                 </td>
                 <td className="actions">
                   {rejecting === a.actionId ? (
@@ -217,7 +242,7 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
                         onKeyDown={(e) => e.key === "Enter" && reason.trim() && void decide(a.actionId, "reject", reason.trim())}
                       />
                       <button className="secondary" disabled={!reason.trim() || busy !== null} onClick={() => decide(a.actionId, "reject", reason.trim())}>
-                        {a.status === "Approved" ? "Revoke" : "Reject"}
+                        {revision ? "Decline" : a.status === "Approved" ? "Revoke" : "Reject"}
                       </button>
                       <button className="link" onClick={() => setRejecting(null)}>
                         Cancel
@@ -246,19 +271,23 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
                         </div>
                       )}
                       <div className="buttons">
-                        {available.map((d) => (
+                        {shown.map((d) => (
                           <button
                             key={d}
                             className={d === "reject" ? "secondary" : "primary"}
                             disabled={busy !== null || (settingFor(d) !== undefined && !draftValid)}
                             onClick={() => (d === "reject" ? setRejecting(a.actionId) : decide(a.actionId, d, undefined, settingFor(d)))}
-                            title={d === "reject" && a.status === "Approved" ? "Revoke the approval before it is executed" : undefined}
+                            title={
+                              d === "reject" && revision
+                                ? "Decline the revision; the approved setting stays in force"
+                                : d === "reject" && a.status === "Approved"
+                                  ? "Revoke the approval before it is executed"
+                                  : d === "propose" && revising
+                                    ? "Ask Finance for a different setting; the approved one stays in force until Finance decides"
+                                    : undefined
+                            }
                           >
-                            {busy === a.actionId
-                              ? "…"
-                              : d === "reject" && a.status === "Approved"
-                                ? "Revoke"
-                                : `${d[0].toUpperCase() + d.slice(1)}${settingFor(d) !== undefined ? ` at ${draft}%` : ""}`}
+                            {busy === a.actionId ? "…" : label(d)}
                           </button>
                         ))}
                         {amendTo && (
@@ -272,8 +301,11 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
                           </button>
                         )}
                       </div>
-                      {available.length === 0 && <span className="muted small">{waitingHint(a, isFinance) || "No step for you."}</span>}
-                      {available.length > 0 && waitingHint(a, isFinance) && <div className="muted small">{waitingHint(a, isFinance)}</div>}
+                      {shown.length === 0 && <span className="muted small">{waitingHint(a, isFinance) || "No step for you."}</span>}
+                      {shown.length > 0 && waitingHint(a, isFinance) && <div className="muted small">{waitingHint(a, isFinance)}</div>}
+                      {revising && !revision && !changed && spec && (
+                        <div className="muted small">To ask for a different setting, enter it above and propose it.</div>
+                      )}
                     </>
                   )}
                   {rowFeedback && <div className={rowFeedback.error ? "error small" : "ok small"}>{rowFeedback.text}</div>}

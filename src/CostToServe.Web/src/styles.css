@@ -175,6 +175,12 @@ main {
   color: var(--red);
 }
 
+/* A revised setting waiting for Finance; the approved one stays in force. */
+.revision {
+  color: #92400e;
+  font-weight: 600;
+}
+
 .tag.package {
   background: #ede9fe;
   color: #5b21b6;

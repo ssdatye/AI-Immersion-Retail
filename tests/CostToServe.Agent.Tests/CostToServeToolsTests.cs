@@ -167,7 +167,8 @@ public sealed class CostToServeToolsTests : IDisposable
 
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
         Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A2", "approve", null, null, "Southeast", default)));
-        Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A2", "propose", null, default)));
+        // Proposing an approved action is a revision, which needs a new setting.
+        Assert.Equal("invalid_request", await Error(luis.LogDecisionAsync("A2", "propose", null, default)));
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A2", "reject", "Revoked: stock risk", null, "Southeast", default)));
         Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A2", "execute", null, default)));
         Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A2", "propose", null, default)));
@@ -242,14 +243,15 @@ public sealed class CostToServeToolsTests : IDisposable
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", null, null, "Southeast", default)));
         Assert.Equal(0.05, _log.Entries[^1].Setting);
 
-        // Finance changes the approval; repeating the same value is a conflict, and ops cannot change it.
+        // Finance changes the approval; repeating the same value is a conflict. Ops can only propose a revision.
         Assert.True(PlaybookAction(dana, "A6").GetProperty("canAmendSetting").GetBoolean());
         Assert.False(PlaybookAction(luis, "A6").GetProperty("canAmendSetting").GetBoolean());
         Assert.Equal("recorded", await Status(dana.LogDecisionAsync("A6", "approve", "smaller pilot", 0.04, "Southeast", default)));
         Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, 0.04, "Southeast", default)));
         Assert.Equal("conflict", await Error(dana.LogDecisionAsync("A6", "approve", null, null, "Southeast", default)));
-        Assert.Equal("conflict", await Error(luis.LogDecisionAsync("A6", "propose", null, 0.06, default)));
+        Assert.Equal("recorded", await Status(luis.LogDecisionAsync("A6", "propose", null, 0.06, default)));
 
+        // The approved 4% stays in force while the revision waits; executing runs it and the revision lapses.
         var scenario = Json(dana.RunScenario(0.5, 13, "Southeast", "A6", Levers.None));
         Assert.Equal(0.04, scenario.GetProperty("levers").GetProperty("pickupShiftShare").GetDouble());
         Assert.Equal(["A6: Shift to Pickup 4%"], scenario.GetProperty("actionSettings").EnumerateArray().Select(x => x.GetString()));

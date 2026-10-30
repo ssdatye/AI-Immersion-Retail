@@ -127,6 +127,11 @@ needs the Foundry deployment (see [Agent chat](#agent-chat)).
   to…**). In chat, use `/propose A6 5%` or `/approve A6 4% smaller pilot`. Every step logs
   the setting, and outcomes, savings, the guardrail check and execution results use it. A
   setting that breaks the Express guardrail cannot be approved. A3 and A5 are on/off.
+* Revise an approved action before it is executed. Luis types a new value in "At __ %" and
+  clicks **Propose 30% instead** (or `/propose A2 30%`). The approval stays in force at its
+  setting, and in everyone's outcomes, while the revision waits for Dana: she clicks
+  **Approve 30%** (the new setting applies) or **Decline revision** (it stays at 20%). If Luis
+  executes first, the approved setting runs and the revision lapses.
 * Package tuned levers as one custom action. When Luis has set levers in **Fine-tune the
   model**, the panel footer offers **📦 Propose these levers as a package**. He names it (for
   example "Southeast fuel response"), adds an optional reason, and proposes it. The package
@@ -182,7 +187,9 @@ existing objects and never resets passwords; `./scripts/teardown-entra.sh` remov
 | No studio role | Nothing (403)          | -                                    |
 
 Each action follows one workflow: Not reviewed → Proposed (regional ops) → Approved or
-Rejected (finance) → Executed (regional ops). The actions table shows each action's status
+Rejected (finance) → Executed (regional ops). Before execution, regional ops can propose a
+revised setting; the approval stays in force until finance approves or declines the
+revision. The actions table shows each action's status
 and only the buttons valid for you now; out-of-order steps return HTTP 409. Approving applies
 an action to the scenario outcomes. Executing marks it live and adds it to Execution results:
 a modeled pilot readout (Southeast zones 1-3 versus control zones 4-7) with the weekly saving
@@ -277,7 +284,7 @@ The 88% offset is network-wide, against the +$0.50/gal, 13-week shock.
 ### Agent evaluations
 
 ```bash
-./scripts/run-evals.sh                  # 35 questions as Dana and Luis, Foundry judges, report
+./scripts/run-evals.sh                  # 38 questions as Dana and Luis, Foundry judges, report
 ./scripts/run-evals.sh --skip-foundry   # deterministic checks only
 ```
 

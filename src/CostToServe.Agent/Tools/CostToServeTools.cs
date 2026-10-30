@@ -165,6 +165,8 @@ public sealed class CostToServeTools(
                 Name = LogDecisionName,
                 Description = "Requests that a decision on a playbook action or custom package be logged for one region, optionally with a " +
                               "different setting (playbook actions only). Proposing or approving again with a different setting changes it. " +
+                              "Regional ops may propose a revised setting for an approved, not yet executed action: the approval stays in force " +
+                              "until finance approves the revision (approve with no setting accepts it) or rejects it (declines only the revision). " +
                               "The user must confirm in the app; only a result with status 'recorded' means it was logged.",
             }),
         AIFunctionFactory.Create(
@@ -466,6 +468,7 @@ public sealed class CostToServeTools(
                     LatestDecisionAt = focus?.LatestDecisionAt,
                     LatestDecisionReason = focus?.LatestDecisionReason,
                     AvailableDecisions = focus?.AvailableDecisions ?? [],
+                    PendingRevision = focus?.PendingRevision,
                     ByRegion = byRegion,
                     IsPackage = package is not null,
                     PackageRegion = package?.Region,
@@ -490,7 +493,8 @@ public sealed class CostToServeTools(
                 .SelectMany(x => x.Regions
                     .Where(r => scopedRegion is null || r == scopedRegion)
                     .Select(r => RegionDecision(x.Id, catalog.Find(x.Id), r, latest))
-                    .Where(d => d.Status == waitingStatus)
+                    // A revision waits for finance; while it is pending, regional ops waits too.
+                    .Where(d => caller.CanApprove ? d.Status == waitingStatus || d.PendingRevision is not null : d.Status == waitingStatus && d.PendingRevision is null)
                     .Select(d => new
                     {
                         ActionId = x.Id,
@@ -499,6 +503,7 @@ public sealed class CostToServeTools(
                         d.Status,
                         d.Setting,
                         d.AvailableDecisions,
+                        d.PendingRevision,
                         // The saving in this region only, at the decided setting (the row's saving may cover several regions).
                         EstimatedWeeklySavingUsd = d.Levers is null ? (double?)null : Math.Round(engine.WeeklySaving(d.Levers, [d.Region])),
                     }))
@@ -508,7 +513,7 @@ public sealed class CostToServeTools(
                 DecisionRegion = scopedRegion,
                 WaitingForYou = waiting,
                 WaitingForYouNote = caller.Role == DemoRole.FinanceAnalyst
-                    ? "Proposals the caller (finance) has to approve or reject. Nothing else is waiting for finance."
+                    ? "Proposals and revisions (PendingRevision) the caller (finance) has to approve or reject. Nothing else is waiting for finance."
                     : "Approved actions the caller (regional ops) has to execute. Not reviewed actions can be proposed.",
                 SavingsScope = scopedRegion ?? "Network",
                 SavingsNote = "Each saving is for that action alone, at current-week volumes, using each region's decided setting. " +
@@ -531,17 +536,30 @@ public sealed class CostToServeTools(
         string? LatestDecisionBy,
         string? LatestDecisionAt,
         string? LatestDecisionReason,
-        [property: System.Text.Json.Serialization.JsonIgnore] Levers? Levers);
+        [property: System.Text.Json.Serialization.JsonIgnore] Levers? Levers,
+        object? PendingRevision = null);
 
     private RegionDecisionView RegionDecision(string actionId, DemoAction? modeled, string region, IReadOnlyDictionary<(string, string), DecisionEntry> latest)
     {
         var d = Latest(latest, region, actionId);
         var spec = modeled?.Setting;
         var current = CurrentSetting(modeled, d);
+        var revision = Revision(latest, region, actionId);
+        var steps = DecisionWorkflow.AvailableTo(caller, d?.Decision).ToList();
+        if (d?.Decision == DecisionKind.Approve && spec is not null && caller.Role == DemoRole.RegionalOps)
+        {
+            steps.Add(DecisionKind.Propose); // a revision of the approved setting
+        }
+
+        if (revision is not null && caller.CanApprove)
+        {
+            steps.Insert(0, DecisionKind.Approve); // accept the revision
+        }
+
         return new RegionDecisionView(
             region,
             DecisionWorkflow.Status(d?.Decision),
-            caller.CanSee(region) ? DecisionWorkflow.AvailableTo(caller, d?.Decision).Select(k => k.Verb()).ToArray() : [],
+            caller.CanSee(region) ? steps.Select(k => k.Verb()).ToArray() : [],
             spec is null || current is null ? null : new
             {
                 spec.Lever,
@@ -559,7 +577,15 @@ public sealed class CostToServeTools(
             d?.Actor,
             d?.Timestamp.ToString("yyyy-MM-ddTHH:mm:ssZ"),
             string.IsNullOrEmpty(d?.Reason) ? null : d.Reason,
-            modeled is null ? null : DecidedLevers(modeled, region, latest));
+            modeled is null ? null : DecidedLevers(modeled, region, latest),
+            revision is null || spec is null || CurrentSetting(modeled, revision) is not { } proposed ? null : new
+            {
+                Value = proposed,
+                Text = spec.Format(proposed),
+                By = revision.Actor,
+                At = revision.Timestamp.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+                Reason = string.IsNullOrEmpty(revision.Reason) ? null : revision.Reason,
+            });
     }
 
     public object GetExecutionResults() =>
@@ -683,10 +709,33 @@ public sealed class CostToServeTools(
             var decisionRegion = package is not null ? PackageRegion(package, region) : ResolveDecisionRegion(region, id, kind, all);
             var latest = Latest(all, decisionRegion, id);
             var current = CurrentSetting(modeled, latest);
-            var resolved = kind == DecisionKind.Reject || spec is null ? null : setting is { } requested ? Math.Round(requested, 4) : current;
+            var pending = Revision(all, decisionRegion, id);
+            var pendingValue = pending is null ? null : CurrentSetting(modeled, pending);
+            var isRevision = kind == DecisionKind.Propose && latest?.Decision == DecisionKind.Approve;
+            if (isRevision && spec is null)
+            {
+                throw new ArgumentException(package is not null
+                    ? $"{id} is approved and a package cannot be revised. Propose a new package with the settings you want."
+                    : $"{id} is approved and has no adjustable setting to revise.");
+            }
+
+            if (isRevision && setting is null)
+            {
+                throw new ArgumentException($"{id} is approved for {decisionRegion} at {spec!.Format(current!.Value)}. To propose a revision, give the new setting.");
+            }
+
+            // Approving with a revision pending accepts the revision's setting unless finance names another.
+            var resolved = kind == DecisionKind.Reject || spec is null ? null
+                : setting is { } requested ? Math.Round(requested, 4)
+                : kind == DecisionKind.Approve && pendingValue is not null ? pendingValue
+                : current;
             var levers = modeled?.WithSetting(resolved);
             var canAmend = spec is not null && latest is not null && kind == latest.Decision && DecisionWorkflow.CanAmend(caller.Role, latest.Decision);
-            var isAmendment = canAmend && setting is not null && resolved != current;
+            var isAmendment = (canAmend || isRevision) && (setting is not null || pendingValue is not null) && resolved != current;
+            if (isRevision && !isAmendment)
+            {
+                throw new DecisionConflictException($"{id} is already approved for {decisionRegion} at {spec!.Format(current!.Value)}. Propose a different setting to revise it.");
+            }
 
             var next = DecisionWorkflow.NextSteps(latest?.Decision);
             if (!next.Contains(kind) && !isAmendment)
@@ -707,9 +756,12 @@ public sealed class CostToServeTools(
                 throw new ScopeDeniedException($"{id}{at} breaks the Express 3-hour guardrail and cannot be {kind.ToString().ToLowerInvariant()}d for {decisionRegion}.");
             }
 
-            var settingText = resolved is { } value
-                ? spec!.Format(value) + (current is { } was && was != value ? $" (was {(was * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%)" : string.Empty)
-                : null;
+            var settingText = kind == DecisionKind.Reject && pendingValue is { } declined
+                ? $"Declines the revision to {spec!.Format(declined)}; stays approved at {spec.Format(current!.Value)}"
+                : resolved is { } value
+                    ? spec!.Format(value) + (current is { } was && was != value ? $" (was {(was * 100).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%)" : string.Empty)
+                      + (isRevision ? "; the approved setting stays in force until Finance decides" : string.Empty)
+                    : null;
             var proposal = new DecisionProposal(
                 id,
                 actionName,
@@ -744,6 +796,12 @@ public sealed class CostToServeTools(
                 entry.Reason,
                 Setting = settingText,
                 SettingValue = resolved,
+                Revision = isRevision ? "proposed; the approval stays in force until finance decides"
+                    : pending is null ? null
+                    : kind == DecisionKind.Approve ? "accepted"
+                    : kind == DecisionKind.Reject ? "declined; the approval stays in force"
+                    : kind == DecisionKind.Execute ? "lapsed; executed at the approved setting"
+                    : null,
             };
         });
 
@@ -876,11 +934,55 @@ public sealed class CostToServeTools(
     private static DecisionEntry? Latest(IReadOnlyDictionary<(string, string), DecisionEntry> latest, string region, string actionId) =>
         latest.GetValueOrDefault((region, actionId.Trim().ToUpperInvariant()));
 
-    /// <summary>Latest decision per (region, action). Rows from before regions count as the legacy region.</summary>
-    private Dictionary<(string Region, string ActionId), DecisionEntry> LatestDecisions() =>
-        decisionLog.ReadAll()
-            .GroupBy(d => (Region: data.CanonicalRegion(d.EffectiveRegion), ActionId: d.ActionId.Trim().ToUpperInvariant()))
-            .ToDictionary(g => g.Key, g => g.Last());
+    /// <summary>
+    /// The decision in force per (region, action), plus any revision waiting for finance. A proposal made after an
+    /// approval is a revision: the approval stays in force until finance approves the revision (the new setting
+    /// applies) or rejects it (only the revision is declined). Executing, or approving again, ends a revision.
+    /// Rows from before regions count as the legacy region.
+    /// </summary>
+    private DecisionStates LatestDecisions()
+    {
+        var states = new DecisionStates();
+        foreach (var g in decisionLog.ReadAll().GroupBy(d => (Region: data.CanonicalRegion(d.EffectiveRegion), ActionId: d.ActionId.Trim().ToUpperInvariant())))
+        {
+            DecisionEntry? current = null, revision = null;
+            foreach (var e in g)
+            {
+                if (e.Decision == DecisionKind.Propose && current?.Decision == DecisionKind.Approve)
+                {
+                    revision = e;
+                }
+                else if (e.Decision == DecisionKind.Reject && revision is not null)
+                {
+                    revision = null;
+                }
+                else
+                {
+                    current = e;
+                    revision = null;
+                }
+            }
+
+            states[g.Key] = current!;
+            if (revision is not null)
+            {
+                states.Revisions[g.Key] = revision;
+            }
+        }
+
+        return states;
+    }
+
+    /// <summary>Decisions in force per (region, action), with the revisions waiting for finance.</summary>
+    private sealed class DecisionStates : Dictionary<(string Region, string ActionId), DecisionEntry>
+    {
+        public Dictionary<(string Region, string ActionId), DecisionEntry> Revisions { get; } = [];
+
+        public DecisionEntry? Revision(string region, string actionId) => Revisions.GetValueOrDefault((region, actionId.Trim().ToUpperInvariant()));
+    }
+
+    private static DecisionEntry? Revision(IReadOnlyDictionary<(string, string), DecisionEntry> latest, string region, string actionId) =>
+        (latest as DecisionStates)?.Revision(region, actionId);
 
     /// <summary>
     /// The region a decision applies to. Regional ops: their own region. Finance: the named region, or the one
@@ -903,7 +1005,8 @@ public sealed class CostToServeTools(
             return data.CanonicalRegion(caller.AllowedRegions[0]);
         }
 
-        var proposedIn = data.Regions.Where(r => Latest(latest, r, actionId)?.Decision == DecisionKind.Propose).ToArray();
+        var proposedIn = data.Regions
+            .Where(r => Latest(latest, r, actionId)?.Decision == DecisionKind.Propose || Revision(latest, r, actionId) is not null).ToArray();
         if (kind is DecisionKind.Approve or DecisionKind.Reject && proposedIn.Length == 1)
         {
             return proposedIn[0];

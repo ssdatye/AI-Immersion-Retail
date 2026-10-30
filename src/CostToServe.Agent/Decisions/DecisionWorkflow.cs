@@ -10,7 +10,8 @@ public sealed class DecisionConflictException(string message) : Exception(messag
 /// Not reviewed -> Proposed (ops) -> Approved or Rejected (finance) -> Executed (ops).
 /// Finance may also approve or reject without a proposal, and reject (revoke) an approval
 /// before execution. A rejected action can be proposed or approved again. Executed is final
-/// until the demo is reset.
+/// until the demo is reset. Regional ops may propose a revised setting for an approved action;
+/// the approval stays in force until finance approves or rejects the revision (see the tools).
 /// </summary>
 public static class DecisionWorkflow
 {

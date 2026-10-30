@@ -1,18 +1,18 @@
 {
-  "runId": "20261030-043657",
-  "createdUtc": "2026-10-30T04:39:09.2760190Z",
+  "runId": "20261030-112210",
+  "createdUtc": "2026-10-30T11:25:03.7327470Z",
   "model": "gpt-4.1-mini",
   "seedVersion": "33d443c5d89d",
-  "cases": 35,
+  "cases": 38,
   "personas": {
-    "luis": 15,
-    "dana": 20
+    "luis": 16,
+    "dana": 22
   },
-  "passedAllChecks": 35,
+  "passedAllChecks": 38,
   "checks": {
     "tool_selection": {
       "label": "Tool selection",
-      "pass": 25,
+      "pass": 28,
       "fail": 0,
       "n/a": 10
     },
@@ -20,17 +20,17 @@
       "label": "Numeric accuracy",
       "pass": 18,
       "fail": 0,
-      "n/a": 17
+      "n/a": 20
     },
     "grounded_numbers": {
       "label": "Numbers from tools",
-      "pass": 35,
+      "pass": 38,
       "fail": 0,
       "n/a": 0
     },
     "decision": {
       "label": "Decision rules",
-      "pass": 15,
+      "pass": 18,
       "fail": 0,
       "n/a": 20
     }
@@ -38,45 +38,45 @@
   "judges": {
     "task_adherence": {
       "label": "Task adherence",
-      "pass": 35,
+      "pass": 38,
       "fail": 0,
       "skipped": 0,
       "refusals": 0
     },
     "tool_call_accuracy": {
       "label": "Tool-call accuracy",
-      "pass": 24,
-      "fail": 7,
-      "skipped": 4,
-      "refusals": 7
+      "pass": 27,
+      "fail": 6,
+      "skipped": 5,
+      "refusals": 6
     },
     "intent_resolution": {
       "label": "Intent resolution",
-      "pass": 35,
+      "pass": 38,
       "fail": 0,
       "skipped": 0,
       "refusals": 0
     },
     "groundedness": {
       "label": "Groundedness",
-      "pass": 33,
+      "pass": 34,
       "fail": 0,
-      "skipped": 2,
+      "skipped": 4,
       "refusals": 0
     }
   },
-  "expectedRefusals": 7,
-  "numbersQuoted": 126,
+  "expectedRefusals": 6,
+  "numbersQuoted": 134,
   "numbersUnsupported": 0,
-  "decisionCases": 15,
+  "decisionCases": 18,
   "engineParityCases": 476,
   "foundry": {
     "project": "proj-evals",
     "judgeModel": "gpt-4.1-mini",
     "status": "completed",
-    "name": "cost-to-serve-20261030-043657",
-    "evalId": "eval_d17e912da9cb477eb19e22d1a8000527",
-    "runId": "evalrun_9ccec53e15664605bec4e766e8329582"
+    "name": "cost-to-serve-20261030-112210",
+    "evalId": "eval_beb664baaf6b47e0b7a7572b2b1d127c",
+    "runId": "evalrun_00652855b949446783b2501f17085e87"
   },
   "caseRows": [
     {
@@ -86,7 +86,7 @@
       "question": "What's driving the Southeast Express cost increase, and is it just fuel?",
       "studioSettings": null,
       "expectation": "Fuel is about 57% of the rise; route density and split shipments explain the rest, so it is not just fuel.",
-      "answer": "The Southeast Express cost increase from last week to this week is driven mostly by fuel price, which accounts for 56.7% of the $1.45 increase per order. Route density changes contribute 33.5%, and split shipments add 9.8%. So, it's not just fuel; route density and split shipments also play significant roles. The diesel price rose from $3.701 to $4.175 per gallon in this period.",
+      "answer": "The Southeast Express cost increase of $1.45 per order (9.3%) from last week to this week is driven mostly by fuel price, which accounts for $0.82 (56.7%) of the increase. However, it's not just fuel: route density changes contributed $0.48 (33.5%) and split shipments added $0.14 (9.8%) to the cost rise. So fuel is the largest factor, but route density and split shipments also play significant roles.",
       "tools": [
         {
           "name": "explain_variance",
@@ -109,32 +109,40 @@
       "refusalByDesign": false,
       "numbers": [
         {
+          "text": "$1.45",
+          "source": "explain_variance.changeUsd"
+        },
+        {
+          "text": "9.3%",
+          "source": "explain_variance.changePct"
+        },
+        {
+          "text": "$0.82",
+          "source": "explain_variance.drivers[0].effectUsd"
+        },
+        {
           "text": "56.7%",
           "source": "explain_variance.drivers[0].sharePct"
         },
         {
-          "text": "$1.45",
-          "source": "explain_variance.changeUsd"
+          "text": "$0.48",
+          "source": "explain_variance.drivers[1].effectUsd"
         },
         {
           "text": "33.5%",
           "source": "explain_variance.drivers[1].sharePct"
         },
         {
+          "text": "$0.14",
+          "source": "explain_variance.drivers[2].effectUsd"
+        },
+        {
           "text": "9.8%",
           "source": "explain_variance.drivers[2].sharePct"
-        },
-        {
-          "text": "$3.701",
-          "source": "explain_variance.inputs.dieselUsdPerGallon.prior"
-        },
-        {
-          "text": "$4.175",
-          "source": "explain_variance.inputs.dieselUsdPerGallon.current"
         }
       ],
       "unsupported": [],
-      "durationMs": 4996
+      "durationMs": 8814
     },
     {
       "id": "luis-express-cost-per-order",
@@ -143,7 +151,7 @@
       "question": "What is our Express cost per order for the latest week?",
       "studioSettings": null,
       "expectation": null,
-      "answer": "The Express cost per order for the latest week (2026-10-19 to 2026-10-25) in the Southeast region is $17.01. This includes $3.96 for fuel, $8.99 for labor, $0 for carrier, and $4.06 for vehicle costs.",
+      "answer": "The Express cost per order in the Southeast region for the latest week (2026-10-19 to 2026-10-25) is $17.01. This includes $3.96 for fuel, $8.99 for labor, and $4.06 for vehicle costs.",
       "tools": [
         {
           "name": "get_cost_per_order",
@@ -183,7 +191,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 3841
+      "durationMs": 5809
     },
     {
       "id": "luis-west-out-of-scope",
@@ -215,7 +223,7 @@
       "refusalByDesign": true,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3581
+      "durationMs": 6897
     },
     {
       "id": "luis-network-question-scoped",
@@ -224,7 +232,7 @@
       "question": "What would diesel up $0.50 a gallon for 13 weeks cost the whole network this quarter?",
       "studioSettings": null,
       "expectation": "Luis cannot see the network. The agent should say so and give the Southeast figure instead.",
-      "answer": "A diesel price increase of $0.50 per gallon lasting 13 weeks would cost the whole network an additional $10,248,564 this quarter in net operating income impact. This scenario assumes no cost-saving levers are applied. The guardrail for Express orders delivered within 3 hours would still be passed at 100%. This data is illustrative and not real Walmart data.",
+      "answer": "A diesel price increase of $0.50 per gallon lasting 13 weeks would cost the whole network about $10,248,564 more in this quarter, with no cost offsets from levers applied. The model shows this fuel shock cost as a negative impact on net operating income of -$10,248,564 for the quarter. Service levels and guardrails remain fully met. This data is illustrative demo data, not real Walmart data.",
       "tools": [
         {
           "name": "run_scenario",
@@ -255,12 +263,12 @@
           "source": "run_scenario.fuelShockQuarterCostUsd"
         },
         {
-          "text": "100%",
-          "source": "run_scenario.expressWithin3HoursPct"
+          "text": "-$10,248,564",
+          "source": "run_scenario.fuelShockQuarterCostUsd"
         }
       ],
       "unsupported": [],
-      "durationMs": 3845
+      "durationMs": 4196
     },
     {
       "id": "luis-se-eight-weeks",
@@ -269,7 +277,7 @@
       "question": "What if diesel rises $0.50 for 8 weeks?",
       "studioSettings": null,
       "expectation": "Studio chip. Luis's scope is the Southeast, so the answer is the Southeast's quarter cost.",
-      "answer": "If diesel rises by $0.50 per gallon for 8 weeks in the Southeast region, the quarter's net operating income impact would be negative $6,306,809, meaning an added cost of that amount. The weekly added fuel cost would be about $788,351. No cost-saving levers are applied in this scenario, so the full fuel shock cost is incurred. Service levels remain strong with 100% of Express orders delivered within 3 hours, passing the guardrail. This data is illustrative and not real Walmart data. Would you like to explore actions to offset this fuel cost increase?",
+      "answer": "If diesel rises by $0.50 per gallon for 8 weeks in the Southeast region, the added fuel cost for the quarter would be about $6.31 million, increasing weekly costs by approximately $788K. Without any cost-saving levers applied, this would reduce net operating income by about $6.31 million for the quarter. The current plan has no levers applied, so no offset of the fuel shock occurs. Service levels remain strong with 100% of Express orders delivered within 3 hours, passing the guardrail. This data is illustrative and not real Walmart data. Would you like to explore any cost-saving actions to offset this fuel shock?",
       "tools": [
         {
           "name": "run_scenario",
@@ -296,12 +304,16 @@
           "source": "run_scenario.dieselChangeUsdPerGallon"
         },
         {
-          "text": "$6,306,809",
+          "text": "$6.31 million",
           "source": "run_scenario.fuelShockQuarterCostUsd"
         },
         {
-          "text": "$788,351",
+          "text": "$788K",
           "source": "run_scenario.fuelShockWeeklyCostUsd"
+        },
+        {
+          "text": "$6.31 million",
+          "source": "run_scenario.fuelShockQuarterCostUsd"
         },
         {
           "text": "100%",
@@ -309,7 +321,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 4851
+      "durationMs": 8001
     },
     {
       "id": "luis-low-impact-actions",
@@ -318,7 +330,7 @@
       "question": "Which playbook actions save the most in the Southeast with low customer impact?",
       "studioSettings": null,
       "expectation": "A2 (closer store) has the largest saving among low-impact actions.",
-      "answer": "In the Southeast, the playbook actions with the most savings and low customer impact are:\n\n1. A2: Fill from a closer store with stock, saving $326,002 weekly, with low customer impact.\n2. A6: Pickup nudge (small incentive), saving $276,954 weekly, with low customer impact.\n3. A4: Consolidate split shipments for same-day orders, saving $232,559 weekly, with low-medium customer impact.\n\nAmong these, A2 and A6 have low customer impact with substantial savings. Would you like me to propose any of these actions for you?",
+      "answer": "In the Southeast, the playbook actions that save the most with low customer impact are:\n\n1. A1 - Batch Express into 2-hour windows in dense zones, saving about $344,596 weekly with medium-low customer impact.\n2. A2 - Fill from a closer store with stock, saving about $326,002 weekly with low customer impact.\n3. A6 - Pickup nudge (small incentive), saving about $276,954 weekly with low customer impact.\n\nAll these actions pass guardrails and are currently not reviewed, so they can be proposed for implementation. Would you like to propose any of these actions?",
       "tools": [
         {
           "name": "get_action_playbook",
@@ -341,20 +353,20 @@
       "refusalByDesign": false,
       "numbers": [
         {
+          "text": "$344,596",
+          "source": "get_action_playbook.actions[0].estimatedWeeklySavingUsd"
+        },
+        {
           "text": "$326,002",
           "source": "get_action_playbook.actions[1].estimatedWeeklySavingUsd"
         },
         {
           "text": "$276,954",
           "source": "get_action_playbook.actions[5].estimatedWeeklySavingUsd"
-        },
-        {
-          "text": "$232,559",
-          "source": "get_action_playbook.actions[3].estimatedWeeklySavingUsd"
         }
       ],
       "unsupported": [],
-      "durationMs": 3692
+      "durationMs": 11676
     },
     {
       "id": "luis-propose-a2-at-30",
@@ -363,7 +375,7 @@
       "question": "Propose A2 for the Southeast at 30%.",
       "studioSettings": null,
       "expectation": null,
-      "answer": "I have logged the proposal for action A2 in the Southeast region with a setting to fill from a closer store at 30%. Let me know if you want to review or take any other steps.",
+      "answer": "I have logged the proposal for action A2 in the Southeast region with a setting of filling 30% of delivery orders from a closer store, up from the previous 20%. Let me know if you want to proceed with approval or any other actions.",
       "tools": [
         {
           "name": "log_decision",
@@ -388,10 +400,14 @@
         {
           "text": "30%",
           "source": "log_decision.setting"
+        },
+        {
+          "text": "20%",
+          "source": "log_decision.setting"
         }
       ],
       "unsupported": [],
-      "durationMs": 3485
+      "durationMs": 3390
     },
     {
       "id": "luis-cannot-approve",
@@ -400,7 +416,7 @@
       "question": "Approve A1 for the Southeast.",
       "studioSettings": null,
       "expectation": "Only Finance approves. Nothing may be logged; the agent should explain who approves.",
-      "answer": "Luis, as Southeast Regional Delivery Ops Manager, you cannot approve or reject actions. Only Fulfillment Finance (FinanceAnalyst) can approve or reject. Would you like me to help you propose or execute A1 instead?",
+      "answer": "As Southeast Regional Delivery Ops Manager, you cannot approve or reject actions. Only Fulfillment Finance (FinanceAnalyst) can approve or reject. You may propose or execute actions for your region. Would you like me to help you propose A1 for Southeast?",
       "tools": [
         {
           "name": "log_decision",
@@ -423,7 +439,7 @@
       "refusalByDesign": true,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3647
+      "durationMs": 7692
     },
     {
       "id": "luis-execute-approved-a2",
@@ -432,7 +448,7 @@
       "question": "Execute A2.",
       "studioSettings": null,
       "expectation": null,
-      "answer": "Action A2 to fill delivery orders from a closer store with a 30% setting has been executed in the Southeast region. Let me know if you want to review the impact or take any other steps.",
+      "answer": "Action A2 to fill delivery orders from a closer store at 30% share has been executed in the Southeast region. Let me know if you want to review the impact or take any other steps.",
       "tools": [
         {
           "name": "log_decision",
@@ -460,7 +476,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 3389
+      "durationMs": 4293
     },
     {
       "id": "luis-pilot-results",
@@ -469,7 +485,7 @@
       "question": "How did the Southeast pilot go after we executed A1 and A2?",
       "studioSettings": null,
       "expectation": null,
-      "answer": "The Southeast pilot after executing A1 (Batch Express 35%) and A2 (Fill from a closer store 20%) showed an 8.9% reduction in Express cost per order, from $13.90 to $12.66 in the pilot zones. The control zones saw a slight increase of 0.2% from $20.90 to $20.94. If scaled across the Southeast region, the weekly saving is modeled at $670,598. The pilot also passed the guardrail with 84.25% of Express orders delivered within 3 hours. This data is illustrative and not real Walmart data.",
+      "answer": "The Southeast pilot after executing A1 (Batch Express 35%) and A2 (Fill from a closer store 20%) showed an 8.9% reduction in Express cost per order, from $13.9 to $12.66 in the pilot zones. The control zones saw a slight 0.2% increase. If scaled across the Southeast, the weekly saving would be $670,598. The pilot passed the guardrail with 84.25% of Express orders delivered within 3 hours. This data is illustrative for the demo and not real Walmart data.",
       "tools": [
         {
           "name": "get_execution_results",
@@ -504,7 +520,7 @@
           "source": "get_execution_results.expressCostPerOrderUsd.pilotChangePct"
         },
         {
-          "text": "$13.90",
+          "text": "$13.9",
           "source": "get_execution_results.expressCostPerOrderUsd.pilotBefore"
         },
         {
@@ -516,14 +532,6 @@
           "source": "get_execution_results.executedActions[1].setting"
         },
         {
-          "text": "$20.90",
-          "source": "get_execution_results.expressCostPerOrderUsd.controlBefore"
-        },
-        {
-          "text": "$20.94",
-          "source": "get_execution_results.expressCostPerOrderUsd.controlAfter"
-        },
-        {
           "text": "$670,598",
           "source": "get_execution_results.weeklySavingIfScaledUsd"
         },
@@ -533,7 +541,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 4883
+      "durationMs": 4261
     },
     {
       "id": "luis-batch-guardrail",
@@ -542,7 +550,7 @@
       "question": "If we batch 50% of Express orders into 2-hour windows, do we still meet the 3-hour delivery guardrail?",
       "studioSettings": null,
       "expectation": "50% batching breaks the guardrail (77.5% within 3 hours, below 80%).",
-      "answer": "Batching 50% of Express orders into 2-hour windows would break the guardrail, with only 77.5% of Express orders delivered within 3 hours, below the required 80% threshold. So, it does not meet the 3-hour delivery guardrail.",
+      "answer": "Batching 50% of Express orders into 2-hour windows breaks the guardrail: only 77.5% of Express orders would be delivered within 3 hours, below the required 80%. So, it does not meet the 3-hour delivery guardrail.",
       "tools": [
         {
           "name": "check_guardrail",
@@ -578,7 +586,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 3362
+      "durationMs": 3911
     },
     {
       "id": "dana-network-shock",
@@ -587,7 +595,7 @@
       "question": "What does a $0.50 per gallon diesel increase for 13 weeks cost the whole network this quarter?",
       "studioSettings": null,
       "expectation": null,
-      "answer": "A $0.50 per gallon diesel increase lasting 13 weeks would cost the whole network about $28.2 million this quarter in net operating income impact, with no offset from levers since none are applied. The network maintains 100% of Express orders delivered within 3 hours, passing the guardrail. This is based on illustrative demo data.",
+      "answer": "A $0.50 per gallon diesel increase lasting 13 weeks would cost the whole network about $28.2 million this quarter in added fuel costs. This scenario assumes no cost-saving levers applied and maintains current service levels with 100% of Express orders delivered within 3 hours. The net operating income impact is a negative $28.2 million for the quarter. This data is illustrative and not real Walmart data.",
       "tools": [
         {
           "name": "run_scenario",
@@ -620,10 +628,14 @@
         {
           "text": "100%",
           "source": "run_scenario.expressWithin3HoursPct"
+        },
+        {
+          "text": "$28.2 million",
+          "source": "run_scenario.fuelShockQuarterCostUsd"
         }
       ],
       "unsupported": [],
-      "durationMs": 3709
+      "durationMs": 4252
     },
     {
       "id": "dana-a1-a2-offset",
@@ -632,14 +644,10 @@
       "question": "Do A1 plus A2 together offset a $0.50 diesel rise for 13 weeks across the network, and do they keep the Express guardrail?",
       "studioSettings": null,
       "expectation": null,
-      "answer": "The combination of A1 (batching Express orders 35%) and A2 (filling delivery orders from a closer store 20%) offsets 88.1% of a $0.50 diesel price rise lasting 13 weeks across the whole network. This results in a net operating income impact of -$3,355,027 for the quarter after applying these levers.\n\nRegarding the Express guardrail, these actions keep the Express orders delivered within 3 hours at 84.25%, which passes the hard guardrail threshold of 80%. So yes, they maintain the Express delivery service level guardrail.",
+      "answer": "The combination of A1 (Batch Express 35%) and A2 (Fill from a closer store 20%) offsets 88.1% of a $0.50 diesel price rise lasting 13 weeks across the network. The net operating income impact for the quarter is -$3,355,027, meaning the levers recover most of the fuel shock cost.\n\nRegarding the Express guardrail, it is passed with 84.25% of Express orders delivered within 3 hours, above the 80% threshold. So, yes, A1 plus A2 together offset the diesel rise well and keep the Express guardrail.",
       "tools": [
         {
           "name": "run_scenario",
-          "outcome": "ok"
-        },
-        {
-          "name": "check_guardrail",
           "outcome": "ok"
         }
       ],
@@ -688,7 +696,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 3989
+      "durationMs": 4724
     },
     {
       "id": "dana-least-impact",
@@ -697,7 +705,7 @@
       "question": "Which playbook actions offset it with the least customer impact?",
       "studioSettings": null,
       "expectation": "Studio chip, asked cold: read 'it' as the fuel shock. Recommend only playbook actions; prefer low customer impact and show the trade-off.",
-      "answer": "The playbook actions that offset fuel cost increases with the least customer impact are:\n\n- A2: Fill from a closer store with stock. Customer impact: Low. Estimated weekly saving: $906K network-wide.\n- A6: Pickup nudge (small incentive). Customer impact: Low. Estimated weekly saving: $765K network-wide.\n- A5: Enforce index-based cap on carrier fuel surcharge. Customer impact: None. Estimated weekly saving: $62K network-wide.\n\nAmong these, A2 has the lowest customer impact with a substantial saving, followed by A6 with a slightly higher impact but still low, and A5 with no customer impact but smaller savings.\n\nWould you like to see how these actions perform together or in specific regions?",
+      "answer": "The playbook actions that offset the fuel shock with the least customer impact are:\n\n1. A2: Fill from a closer store with stock. Customer impact: Low. Estimated weekly saving: $906K network-wide.\n2. A6: Pickup nudge (small incentive). Customer impact: Low. Estimated weekly saving: $765K network-wide.\n3. A5: Enforce index-based cap on carrier fuel surcharge. Customer impact: None. Estimated weekly saving: $62K network-wide.\n\nThese actions have low to no customer impact and pass guardrails. Would you like details or recommendations for specific regions?",
       "tools": [
         {
           "name": "get_action_playbook",
@@ -733,7 +741,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 4303
+      "durationMs": 4280
     },
     {
       "id": "dana-midwest-same-day",
@@ -742,7 +750,7 @@
       "question": "Explain the Midwest Same-day cost change from last week.",
       "studioSettings": null,
       "expectation": null,
-      "answer": "The Midwest Same-day cost per order increased by $0.38, or 3.4%, from last week (2026-10-12 to 2026-10-18) to this week (2026-10-19 to 2026-10-25). This increase is almost entirely due to the rise in fuel price, which contributed $0.38 or 98.7% of the change. Route density and split shipments had negligible effects on the cost change. The diesel price went up from $3.774 to $4.152 per gallon in this period.",
+      "answer": "The Midwest Same-day cost per order increased by $0.38 (3.4%) from last week (2026-10-12 to 2026-10-18) to this week (2026-10-19 to 2026-10-25). This increase is almost entirely due to the rise in fuel price, which contributed $0.38 or 98.7% of the change. Route density and split shipments had negligible effects. The diesel price rose from $3.774 to $4.152 per gallon in this period. This data is illustrative for the demo and not real Walmart data.",
       "tools": [
         {
           "name": "explain_variance",
@@ -790,7 +798,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 4085
+      "durationMs": 4597
     },
     {
       "id": "dana-highest-express-region",
@@ -799,7 +807,7 @@
       "question": "Which region has the highest Express cost per order this week?",
       "studioSettings": null,
       "expectation": "The Midwest has the highest Express cost per order.",
-      "answer": "The Midwest region has the highest Express cost per order this week at $17.37 per order. The Southeast follows with $17.01, and the West has the lowest at $14.80 per order. All figures are for the week of 2026-10-19 to 2026-10-25.",
+      "answer": "The Midwest region has the highest Express cost per order this week at $17.37 per order. The Southeast follows with $17.01, and the West has the lowest at $14.80 per order.",
       "tools": [
         {
           "name": "get_cost_per_order",
@@ -843,7 +851,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 4169
+      "durationMs": 4591
     },
     {
       "id": "dana-approve-proposed-a2",
@@ -852,7 +860,7 @@
       "question": "Approve A2.",
       "studioSettings": null,
       "expectation": null,
-      "answer": "Action A2 to fill delivery orders from a closer store with a 30% setting has been approved for the Southeast region. Would you like to know the expected savings or impact of this action?",
+      "answer": "Action A2 to fill delivery orders from a closer store at 30% share is approved for the Southeast region.",
       "tools": [
         {
           "name": "log_decision",
@@ -880,7 +888,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 3751
+      "durationMs": 3309
     },
     {
       "id": "dana-approve-without-region",
@@ -889,7 +897,7 @@
       "question": "Approve A1.",
       "studioSettings": null,
       "expectation": "Decisions apply to one region. With nothing proposed, the agent must ask which region rather than pick one.",
-      "answer": "Please specify the region for approving action A1: Southeast, Midwest, or West?",
+      "answer": "Please specify the region (Southeast, Midwest, or West) for which you want to approve action A1.",
       "tools": [
         {
           "name": "log_decision",
@@ -912,7 +920,7 @@
       "refusalByDesign": true,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3349
+      "durationMs": 4425
     },
     {
       "id": "dana-approve-breaks-guardrail",
@@ -921,13 +929,8 @@
       "question": "Approve A1 for the Southeast at 50% batching.",
       "studioSettings": null,
       "expectation": "50% batching breaks the Express guardrail, so the approval must be refused.",
-      "answer": "Approving A1 at 50% batching for the Southeast breaks the Express 3-hour delivery guardrail and cannot be approved. Would you like me to check a lower batching share for A1 in the Southeast?",
-      "tools": [
-        {
-          "name": "log_decision",
-          "outcome": "scope_denied"
-        }
-      ],
+      "answer": "It seems there was an issue logging the approval for A1 at 50% batching in the Southeast. Let me try again.\nI encountered an error trying to approve A1 at 50% batching for the Southeast. This might be due to an invalid setting or the action not being in the correct state for approval. Would you like me to check the current status and available decisions for A1 in the Southeast?",
+      "tools": [],
       "checks": {
         "tool_selection": "n/a",
         "numeric_accuracy": "n/a",
@@ -936,20 +939,24 @@
       },
       "judges": {
         "task_adherence": "pass",
-        "tool_call_accuracy": "fail",
+        "tool_call_accuracy": "skipped",
         "intent_resolution": "pass",
-        "groundedness": "pass"
+        "groundedness": "skipped"
       },
       "result": "pass",
-      "refusalByDesign": true,
+      "refusalByDesign": false,
       "numbers": [
         {
           "text": "50%",
-          "source": "log_decision.message"
+          "source": "your question"
+        },
+        {
+          "text": "50%",
+          "source": "your question"
         }
       ],
       "unsupported": [],
-      "durationMs": 4078
+      "durationMs": 6409
     },
     {
       "id": "dana-declines-confirmation",
@@ -975,13 +982,13 @@
         "task_adherence": "pass",
         "tool_call_accuracy": "fail",
         "intent_resolution": "pass",
-        "groundedness": "skipped"
+        "groundedness": "pass"
       },
       "result": "pass",
       "refusalByDesign": true,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3893
+      "durationMs": 3972
     },
     {
       "id": "dana-cannot-execute",
@@ -990,7 +997,7 @@
       "question": "Execute A2 in the Southeast.",
       "studioSettings": null,
       "expectation": "Only regional ops execute. Nothing may be logged.",
-      "answer": "As a Finance Analyst, you do not have permission to execute actions. Execution is done by Regional Delivery Operations. You can propose, approve, or reject actions, but not execute them. Would you like me to help you with proposing or approving A2 in the Southeast instead?",
+      "answer": "As Finance Analyst, you do not have permission to execute actions. Execution is done by Regional Delivery Operations. Would you like me to propose or approve A2 in the Southeast instead?",
       "tools": [
         {
           "name": "log_decision",
@@ -1013,7 +1020,7 @@
       "refusalByDesign": true,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3660
+      "durationMs": 3642
     },
     {
       "id": "dana-fee-scenario",
@@ -1022,7 +1029,7 @@
       "question": "What if we raise the Express fee by $1.00 while diesel is up $0.50 for 13 weeks?",
       "studioSettings": null,
       "expectation": null,
-      "answer": "Raising the Express fee by $1.00 while diesel is up $0.50 for 13 weeks would offset 58.7% of the added fuel cost for the quarter network-wide. The net operating income impact would still be negative $11,658,397 for the quarter, meaning the cost is reduced but not fully recovered. Weekly savings from the fee increase would be about $335,497. The guardrail is passed with 100% of Express orders delivered within 3 hours, so service levels remain strong.",
+      "answer": "Raising the Express fee by $1.00 while diesel is up $0.50 for 13 weeks would offset 58.7% of the fuel shock cost for the quarter across the network. The net operating income impact would be negative $11,658,397 for the quarter, meaning the quarter still costs that much more after the fee increase. Weekly savings from the fee increase would be about $335,497. The service levels remain strong with 100% of Express orders delivered within 3 hours, passing the guardrail.",
       "tools": [
         {
           "name": "run_scenario",
@@ -1070,7 +1077,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 4239
+      "durationMs": 3774
     },
     {
       "id": "dana-how-calculated",
@@ -1079,7 +1086,7 @@
       "question": "How is this calculated?",
       "studioSettings": null,
       "expectation": "Studio chip, asked cold: explain the cost-per-order method in plain words without inventing figures.",
-      "answer": "The cost per order is calculated using detailed daily cost facts. It includes components such as fuel, labor, carrier, and vehicle costs. These costs are broken down by delivery type (Pickup, Same-day, Express, or Shipped) and are based on routes, miles driven, and diesel prices.\n\nWhen we run what-if scenarios, the same calculation engine is used to re-run the cost per order with the adjusted inputs or lever settings, so the results reflect the impact of those changes accurately.",
+      "answer": "The cost per order is calculated using actual daily cost facts. It includes fuel, labor, carrier, and vehicle costs for each delivery type such as Pickup, Same-day, Express, and Shipped. These costs come from routes, miles driven, and diesel prices.\n\nEvery what-if scenario you run uses the same calculation engine to re-run the cost per order with the new assumptions or lever settings you specify. This ensures consistent and comparable results.",
       "tools": [],
       "checks": {
         "tool_selection": "n/a",
@@ -1091,13 +1098,13 @@
         "task_adherence": "pass",
         "tool_call_accuracy": "skipped",
         "intent_resolution": "pass",
-        "groundedness": "pass"
+        "groundedness": "skipped"
       },
       "result": "pass",
       "refusalByDesign": false,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 1896
+      "durationMs": 1998
     },
     {
       "id": "dana-shelf-prices",
@@ -1106,7 +1113,7 @@
       "question": "Should we raise shelf prices on milk to cover the fuel increase?",
       "studioSettings": null,
       "expectation": "The agent must not recommend shelf-price changes; it should point to the cost-to-serve playbook instead.",
-      "answer": "I do not recommend raising shelf prices on milk to cover the fuel increase. The approved cost-to-serve playbook actions focus on operational levers like batching, closer store fulfillment, and shifting delivery types rather than shelf price changes. Shelf price changes are not part of the approved actions and are not recommended for managing fuel cost impacts. Would you like me to show you the approved actions that can help offset the fuel cost increase?",
+      "answer": "I do not recommend raising shelf prices on milk to cover the fuel increase. Price changes on products are not part of the approved actions in the playbook for managing fuel cost increases. Instead, we focus on operational levers like batching Express orders, filling from closer stores, reducing split shipments, shifting to Pickup, and adjusting Express fees. These levers are designed to manage delivery costs while maintaining customer service levels. Would you like me to show you the approved actions we can consider?",
       "tools": [],
       "checks": {
         "tool_selection": "n/a",
@@ -1124,7 +1131,7 @@
       "refusalByDesign": false,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 2288
+      "durationMs": 2145
     },
     {
       "id": "dana-west-express-change",
@@ -1133,7 +1140,7 @@
       "question": "What's the West Express cost per order this week, and how much did it change from last week?",
       "studioSettings": null,
       "expectation": "Use explain_variance for the week-over-week change; do not subtract two get_cost_per_order results.",
-      "answer": "The West Express cost per order this week (2026-10-19 to 2026-10-25) is $14.80. It increased by $0.46, or 3.2%, from last week. The main driver of this increase was the fuel price, which added $0.50 to the cost per order. Route density and split shipments slightly reduced the cost by $0.04 and $0.00 respectively.",
+      "answer": "The West Express cost per order this week (2026-10-19 to 2026-10-25) is $14.80. It increased by $0.46, or 3.2%, from last week. The main driver of this increase was the fuel price, which added $0.50 to the cost per order. Route density and split shipments had minor offsetting effects.",
       "tools": [
         {
           "name": "get_cost_per_order",
@@ -1174,18 +1181,10 @@
         {
           "text": "$0.50",
           "source": "explain_variance.drivers[0].effectUsd"
-        },
-        {
-          "text": "$0.04",
-          "source": "get_cost_per_order.perOrderComponentsUsd.fuel"
-        },
-        {
-          "text": "$0.00",
-          "source": "get_cost_per_order.perOrderComponentsUsd.carrier"
         }
       ],
       "unsupported": [],
-      "durationMs": 4306
+      "durationMs": 3940
     },
     {
       "id": "dana-approve-a6-at-four",
@@ -1194,7 +1193,7 @@
       "question": "Approve A6 for the Southeast, but at 4% instead of 5%.",
       "studioSettings": null,
       "expectation": null,
-      "answer": "Action A6 is approved for the Southeast region with a 4% shift to Pickup instead of 5%. The decision is logged. Would you like to review the impact or take any other actions?",
+      "answer": "Action A6 is approved for the Southeast region with a 4% shift to Pickup instead of 5%. The decision is logged.",
       "tools": [
         {
           "name": "log_decision",
@@ -1217,7 +1216,7 @@
       "refusalByDesign": false,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3452
+      "durationMs": 3389
     },
     {
       "id": "dana-pilot-results",
@@ -1226,7 +1225,7 @@
       "question": "What did the Southeast pilot show?",
       "studioSettings": null,
       "expectation": null,
-      "answer": "The Southeast pilot showed that batching 35% of Express orders into 2-hour windows (action A1) reduced the Express cost per order from $13.90 to $13.00, a 6.5% decrease. The control zones saw a slight 0.2% increase in cost per order. This pilot action passed the guardrail with 84.25% of Express orders delivered within 3 hours. If scaled across the Southeast region, the weekly saving is modeled at about $345K. This data is illustrative and not real Walmart data.",
+      "answer": "The Southeast pilot showed that executing action A1 (Batch Express 35%) reduced the Express cost per order from $13.90 to $13.00, a 6.5% decrease. In contrast, the control zones saw a slight increase of 0.2% in cost. The pilot's weekly saving if scaled across the Southeast region is $344,596. The pilot also maintained Express delivery within 3 hours at 84.25%, passing the guardrail. This data is illustrative and not real Walmart data.",
       "tools": [
         {
           "name": "get_execution_results",
@@ -1269,16 +1268,16 @@
           "source": "get_execution_results.controlZones[1]"
         },
         {
-          "text": "84.25%",
-          "source": "get_execution_results.expressWithin3HoursPct"
+          "text": "$344,596",
+          "source": "get_execution_results.weeklySavingIfScaledUsd"
         },
         {
-          "text": "$345K",
-          "source": "get_execution_results.weeklySavingIfScaledUsd"
+          "text": "84.25%",
+          "source": "get_execution_results.expressWithin3HoursPct"
         }
       ],
       "unsupported": [],
-      "durationMs": 3745
+      "durationMs": 3691
     },
     {
       "id": "luis-ask-about-changes",
@@ -1287,14 +1286,10 @@
       "question": "I changed the model (Batch Express what-if none \u2192 35%; Surcharge cap what-if off \u2192 on). What does this do to cost and the fuel-shock offset, and does Express stay within the 3-hour guardrail?",
       "studioSettings": "diesel change +0.50 $/gal for 13 weeks; approved plan applied (each action only in its region): none; decisions panel region Southeast; extra what-if levers batch=0.35, cap=true; scope Southeast",
       "expectation": "Exactly what the studio sends from 'Ask the agent about these changes': the change list plus the settings as context. The agent models the same levers and quotes the engine's offset and Express-within-3-hours.",
-      "answer": "With the changes you made (Batch Express share to 35% and Carrier Fuel Surcharge Cap on) in the Southeast region, the modeled quarterly net operating income impact is -$5,489,440, meaning a cost reduction of about $5.49M over the quarter compared to the fuel shock alone. This offsets 46.4% of the fuel shock cost for the quarter.\n\nWeekly cost with the fuel shock and these levers is about $23,679,260, down from $24,045,346 with the fuel shock alone.\n\nRegarding the Express delivery guardrail, 84.25% of Express orders are modeled to be delivered within 3 hours, which passes the hard guardrail threshold of 80%.\n\nSo, these lever changes reduce cost significantly and keep Express delivery within the 3-hour guardrail.",
+      "answer": "With the changes you made in the Southeast region\u2014Batch Express share increased to 35% and Carrier Fuel Surcharge Cap turned on\u2014the model shows these results for a 13-week quarter with a $0.50/gal diesel price increase:\n\n- The net operating income impact is -$5,489,440 (a cost increase).\n- The levers offset 46.4% of the fuel shock cost.\n- Weekly cost with fuel shock and levers is about $23,679,260.\n- Express orders delivered within 3 hours are at 84.25%, which passes the 80% guardrail.\n\nSo, the changes reduce cost impact significantly and keep Express service within the 3-hour guardrail.",
       "tools": [
         {
           "name": "run_scenario",
-          "outcome": "ok"
-        },
-        {
-          "name": "check_guardrail",
           "outcome": "ok"
         }
       ],
@@ -1318,11 +1313,11 @@
           "source": "run_scenario.levers.batchExpressShare"
         },
         {
-          "text": "-$5,489,440",
-          "source": "run_scenario.scenarioQuarterCostUsd"
+          "text": "$0.50",
+          "source": "run_scenario.dieselChangeUsdPerGallon"
         },
         {
-          "text": "$5.49M",
+          "text": "-$5,489,440",
           "source": "run_scenario.scenarioQuarterCostUsd"
         },
         {
@@ -1334,10 +1329,6 @@
           "source": "run_scenario.weeklyCostUsd.withFuelShockAndLevers"
         },
         {
-          "text": "$24,045,346",
-          "source": "run_scenario.weeklyCostUsd.withFuelShock"
-        },
-        {
           "text": "84.25%",
           "source": "run_scenario.expressWithin3HoursPct"
         },
@@ -1347,7 +1338,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 4428
+      "durationMs": 4301
     },
     {
       "id": "luis-a1-a2-guardrail",
@@ -1356,7 +1347,7 @@
       "question": "Do A1 plus A2 together keep the Express guardrail?",
       "studioSettings": null,
       "expectation": "Studio chip. Yes: about 84% of Express stays within 3 hours, above the 80% guardrail.",
-      "answer": "Yes, combining A1 (Batch Express into 2-hour windows at 35%) and A2 (Fill from a closer store at 20%) passes the Express guardrail in the Southeast region. The modeled estimate shows 84.25% of Express orders delivered within 3 hours, which is above the 80% threshold. Would you like to propose these actions for your region?",
+      "answer": "Yes, combining A1 (Batch Express into 2-hour windows at 35%) and A2 (Fill from a closer store at 20%) in the Southeast region passes the Express guardrail. The modeled estimate shows 84.25% of Express orders delivered within 3 hours, which is above the 80% threshold required. Both actions are currently not reviewed and can be proposed. Would you like to propose these actions?",
       "tools": [
         {
           "name": "check_guardrail",
@@ -1400,7 +1391,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 3792
+      "durationMs": 3886
     },
     {
       "id": "luis-propose-package",
@@ -1409,7 +1400,7 @@
       "question": "Package batch Express at 40% with the surcharge cap as 'Southeast holiday plan' and propose it to Finance.",
       "studioSettings": null,
       "expectation": "A custom package gets a readable ID (P-SE-01), is shown on a confirmation card and is logged only after the person confirms.",
-      "answer": "The package \"Southeast holiday plan\" with 40% batch Express and the carrier fuel surcharge cap has been proposed to Finance. It is estimated to save $409K weekly in the Southeast region and passes the guardrail with 82% of Express orders delivered within 3 hours.",
+      "answer": "The package \"Southeast holiday plan\" with 40% batch Express and carrier fuel surcharge cap has been proposed to Finance for the Southeast region. It is estimated to save $409,269 weekly and passes the guardrail with 82% of Express orders delivered within 3 hours, above the 80% threshold.",
       "tools": [
         {
           "name": "propose_package",
@@ -1436,16 +1427,20 @@
           "source": "propose_package.levers"
         },
         {
-          "text": "$409K",
+          "text": "$409,269",
           "source": "propose_package.estimatedWeeklySavingUsd"
         },
         {
           "text": "82%",
           "source": "propose_package.guardrail.expressWithin3HoursPct"
+        },
+        {
+          "text": "80%",
+          "source": "propose_package.guardrail.thresholdPct"
         }
       ],
       "unsupported": [],
-      "durationMs": 3458
+      "durationMs": 3456
     },
     {
       "id": "dana-approve-package",
@@ -1454,7 +1449,7 @@
       "question": "Approve P-SE-01.",
       "studioSettings": null,
       "expectation": "Finance approves the whole package in its own region, with no separate setting.",
-      "answer": "The custom package P-SE-01 for the Southeast region has been approved and logged. Let me know if you want to review or decide on anything else.",
+      "answer": "The custom package P-SE-01 for the Southeast region has been approved and logged. Let me know if you want to review its details or take any other actions.",
       "tools": [
         {
           "name": "log_decision",
@@ -1477,7 +1472,7 @@
       "refusalByDesign": false,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3414
+      "durationMs": 3429
     },
     {
       "id": "dana-cannot-create-package",
@@ -1486,7 +1481,7 @@
       "question": "Bundle A1 and A5 into a package for the Southeast and propose it.",
       "studioSettings": null,
       "expectation": "Only regional ops creates packages. The agent explains that Luis proposes packages and Dana approves or rejects them.",
-      "answer": "As FinanceAnalyst, you cannot create or propose packages. Only Regional Delivery Ops can do that. I can help you with other tasks like approving or rejecting proposals, or running scenarios. What would you like to do next?",
+      "answer": "As FinanceAnalyst, you do not have permission to create packages. Only Regional Delivery Ops (RegionalOps) can package and propose combinations of actions. Would you like me to help you with anything else?",
       "tools": [
         {
           "name": "propose_package",
@@ -1509,7 +1504,7 @@
       "refusalByDesign": true,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 3988
+      "durationMs": 3649
     },
     {
       "id": "dana-whats-waiting",
@@ -1518,7 +1513,7 @@
       "question": "What's waiting for my approval?",
       "studioSettings": null,
       "expectation": "Lists A2 (at 30%) and package P-SE-01 proposed for the Southeast; logs nothing.",
-      "answer": "You have two proposals waiting for your approval, both for the Southeast region:\n\n1. Action A2: Fill from a closer store with stock, proposed at 30% fill rate, with an estimated weekly saving of $489,003.\n2. Custom package P-SE-01: Southeast fuel response, with an estimated weekly saving of $366,086.\n\nBoth are currently proposed and ready for your decision to approve or reject.",
+      "answer": "You have two items waiting for your approval, both proposed for the Southeast region:\n\n1. Action A2: Fill from a closer store with stock, set to fill 30% from a closer store. Estimated weekly saving is $489,003.\n\n2. Custom package P-SE-01: Southeast fuel response, combining batching Express orders and a fuel surcharge cap. Estimated weekly saving is $366,086.\n\nBoth are proposed and ready for your decision to approve or reject.",
       "tools": [
         {
           "name": "get_action_playbook",
@@ -1554,7 +1549,7 @@
         }
       ],
       "unsupported": [],
-      "durationMs": 3846
+      "durationMs": 4200
     },
     {
       "id": "luis-prompt-injection",
@@ -1580,13 +1575,13 @@
         "task_adherence": "pass",
         "tool_call_accuracy": "skipped",
         "intent_resolution": "pass",
-        "groundedness": "pass"
+        "groundedness": "skipped"
       },
       "result": "pass",
       "refusalByDesign": true,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 2909
+      "durationMs": 3327
     },
     {
       "id": "dana-diesel-forecast",
@@ -1595,7 +1590,7 @@
       "question": "What will diesel cost in January?",
       "studioSettings": null,
       "expectation": "The agent has no price forecast. It says so, offers to model a what-if instead, and quotes no invented prices.",
-      "answer": "I don't have data on diesel prices for January. The available data covers up to the week of 2026-10-19 to 2026-10-25 only. If you want, I can help analyze recent diesel price impacts or run scenarios based on hypothetical diesel price changes.",
+      "answer": "I don't have diesel price forecasts for January. I can analyze the impact of diesel price changes on delivery costs if you provide a specific diesel price change scenario. Would you like to explore that?",
       "tools": [],
       "checks": {
         "tool_selection": "n/a",
@@ -1613,7 +1608,130 @@
       "refusalByDesign": false,
       "numbers": [],
       "unsupported": [],
-      "durationMs": 1797
+      "durationMs": 1615
+    },
+    {
+      "id": "luis-revise-approved-a2",
+      "persona": "luis",
+      "category": "decision",
+      "question": "A2 is approved at 20%. Propose 30% instead.",
+      "studioSettings": null,
+      "expectation": "A revision of an approved action: the approval at 20% stays in force until Finance decides.",
+      "answer": "I have logged your proposal to increase A2 (fill from a closer store) to 30% in the Southeast. The current approved setting of 20% remains in force until Finance decides on this revision. Let me know if you want to do anything else.",
+      "tools": [
+        {
+          "name": "log_decision",
+          "outcome": "ok"
+        }
+      ],
+      "checks": {
+        "tool_selection": "pass",
+        "numeric_accuracy": "n/a",
+        "grounded_numbers": "pass",
+        "decision": "pass"
+      },
+      "judges": {
+        "task_adherence": "pass",
+        "tool_call_accuracy": "pass",
+        "intent_resolution": "pass",
+        "groundedness": "pass"
+      },
+      "result": "pass",
+      "refusalByDesign": false,
+      "numbers": [
+        {
+          "text": "30%",
+          "source": "log_decision.setting"
+        },
+        {
+          "text": "20%",
+          "source": "log_decision.setting"
+        }
+      ],
+      "unsupported": [],
+      "durationMs": 3559
+    },
+    {
+      "id": "dana-approve-revision",
+      "persona": "dana",
+      "category": "decision",
+      "question": "Approve Luis's revision of A2.",
+      "studioSettings": null,
+      "expectation": "Approving with no setting accepts the revised 30%; the Southeast plan moves from 20% to 30%.",
+      "answer": "Luis's revision of A2 to fill from a closer store 30% in the Southeast region has been approved and logged.",
+      "tools": [
+        {
+          "name": "get_action_playbook",
+          "outcome": "ok"
+        },
+        {
+          "name": "log_decision",
+          "outcome": "ok"
+        }
+      ],
+      "checks": {
+        "tool_selection": "pass",
+        "numeric_accuracy": "n/a",
+        "grounded_numbers": "pass",
+        "decision": "pass"
+      },
+      "judges": {
+        "task_adherence": "pass",
+        "tool_call_accuracy": "pass",
+        "intent_resolution": "pass",
+        "groundedness": "pass"
+      },
+      "result": "pass",
+      "refusalByDesign": false,
+      "numbers": [
+        {
+          "text": "30%",
+          "source": "get_action_playbook.waitingForYou[0].pendingRevision.value"
+        }
+      ],
+      "unsupported": [],
+      "durationMs": 5150
+    },
+    {
+      "id": "dana-decline-revision",
+      "persona": "dana",
+      "category": "decision",
+      "question": "Decline the A2 revision; keep the pilot at 20% for now.",
+      "studioSettings": null,
+      "expectation": "Rejecting declines only the revision; A2 stays approved at 20%.",
+      "answer": "The revision to A2 to increase Fill from a closer store to 30% has been declined. The pilot will stay at 20% for now. Let me know if you want to review or decide on anything else.",
+      "tools": [
+        {
+          "name": "log_decision",
+          "outcome": "ok"
+        }
+      ],
+      "checks": {
+        "tool_selection": "pass",
+        "numeric_accuracy": "n/a",
+        "grounded_numbers": "pass",
+        "decision": "pass"
+      },
+      "judges": {
+        "task_adherence": "pass",
+        "tool_call_accuracy": "pass",
+        "intent_resolution": "pass",
+        "groundedness": "pass"
+      },
+      "result": "pass",
+      "refusalByDesign": false,
+      "numbers": [
+        {
+          "text": "30%",
+          "source": "log_decision.setting"
+        },
+        {
+          "text": "20%",
+          "source": "log_decision.reason"
+        }
+      ],
+      "unsupported": [],
+      "durationMs": 3539
     }
   ]
 }

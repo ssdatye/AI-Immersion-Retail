@@ -102,10 +102,20 @@ export interface ScenarioResult {
 export type ActionStatus = "Not reviewed" | "Proposed" | "Approved" | "Rejected" | "Executed";
 
 /** One action's decision state in one region. Decisions apply to one region at a time. */
+/** A revised setting regional ops proposed for an approved action; the approval stays in force until Finance decides. */
+export interface PendingRevision {
+  value: number;
+  text: string;
+  by: string;
+  at: string;
+  reason?: string | null;
+}
+
 export interface RegionDecision {
   region: string;
   status: ActionStatus;
   availableDecisions: string[];
+  pendingRevision?: PendingRevision | null;
   setting?: ActionSetting | null;
   canAmendSetting: boolean;
   latestDecisionBy?: string | null;
@@ -134,6 +144,7 @@ export interface PlaybookAction {
   latestDecisionReason: string | null;
   /** Decisions the signed-in user can take now (server-computed from role and workflow). */
   availableDecisions: string[];
+  pendingRevision?: PendingRevision | null;
   /** Levers at the currently decided setting (proposed or approved), else the playbook setting. */
   levers?: Levers | null;
   /** The adjustable lever (A1, A2, A4, A6); null or absent for on/off actions. Values are fractions. */

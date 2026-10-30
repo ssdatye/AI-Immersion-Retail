@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { api } from "../api";
 import type { ApiAuth } from "../auth";
+import { toPercent } from "../format";
 import type { DecisionVerb } from "../commands";
 import type { Playbook } from "../types";
 
@@ -84,7 +85,8 @@ export function DecisionStrip({ auth, items, playbook, showRegion, onDecided }: 
   return (
     <div className="decision-strip" aria-label="Decide on mentioned actions">
       {rows.map(({ key, a, r }) => {
-        const available = r.availableDecisions as DecisionVerb[];
+        // A revision of an approved action needs a new setting: use the actions table or /propose A2 30%.
+        const available = (r.availableDecisions as DecisionVerb[]).filter((d) => !(d === "propose" && r.status === "Approved"));
         return (
           <div key={key} className="decision-row">
             <span className="decision-id" title={a.action}>
@@ -97,6 +99,7 @@ export function DecisionStrip({ auth, items, playbook, showRegion, onDecided }: 
                 {r.setting.text}
               </span>
             )}
+            {r.pendingRevision && <span className="revision small">revision: {toPercent(r.pendingRevision.value)}%</span>}
             {rejecting === key ? (
               <span className="decision-reason">
                 <input
@@ -107,7 +110,7 @@ export function DecisionStrip({ auth, items, playbook, showRegion, onDecided }: 
                   onKeyDown={(e) => e.key === "Enter" && reason.trim() && void decide(a.actionId, r.region, "reject", reason.trim())}
                 />
                 <button className="secondary" disabled={busy || !reason.trim()} onClick={() => decide(a.actionId, r.region, "reject", reason.trim())}>
-                  {r.status === "Approved" ? "Revoke" : "Reject"}
+                  {r.pendingRevision ? "Decline" : r.status === "Approved" ? "Revoke" : "Reject"}
                 </button>
                 <button className="link" onClick={() => setRejecting(null)}>
                   Cancel
@@ -123,7 +126,13 @@ export function DecisionStrip({ auth, items, playbook, showRegion, onDecided }: 
                   disabled={busy}
                   onClick={() => (d === "reject" ? setRejecting(key) : decide(a.actionId, r.region, d))}
                 >
-                  {d === "reject" && r.status === "Approved" ? "Revoke" : d[0].toUpperCase() + d.slice(1)}
+                  {d === "reject" && r.pendingRevision
+                    ? "Decline revision"
+                    : d === "approve" && r.pendingRevision
+                      ? `Approve ${toPercent(r.pendingRevision.value)}%`
+                      : d === "reject" && r.status === "Approved"
+                        ? "Revoke"
+                        : d[0].toUpperCase() + d.slice(1)}
                 </button>
               ))
             )}

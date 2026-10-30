@@ -33,6 +33,12 @@ describe("waitingFor", () => {
   it("gives regional ops the approvals to execute, per region", () => {
     expect(waitingFor(caller(false), actions).map((a) => `${a.actionId}:${a.region}`)).toEqual(["A1:Midwest", "A2:Southeast"]);
   });
+  it("gives finance a revision to decide, and regional ops waits for it", () => {
+    const revised = { ...region("Southeast", "Approved", 0.2), pendingRevision: { value: 0.3, text: "30%", by: "Luis", at: "2026-10-30T07:00:00Z" } };
+    const list = [action("A2", revised)];
+    expect(waitingFor(caller(true), list).map((a) => a.pendingRevision?.text)).toEqual(["30%"]);
+    expect(waitingFor(caller(false), list)).toEqual([]);
+  });
 });
 
 describe("planIn", () => {

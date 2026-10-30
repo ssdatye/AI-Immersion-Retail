@@ -1,4 +1,4 @@
-import type { ActionSetting, ActionStatus, Caller, Levers, PlaybookAction } from "./types";
+import type { ActionSetting, ActionStatus, Caller, Levers, PendingRevision, PlaybookAction } from "./types";
 
 /** An action waiting for this caller in one region. */
 export interface WaitingItem {
@@ -7,18 +7,23 @@ export interface WaitingItem {
   region: string;
   status: ActionStatus;
   setting?: ActionSetting | null;
+  pendingRevision?: PendingRevision | null;
   latestDecisionBy?: string | null;
   latestDecisionAt?: string | null;
 }
 
+/** True when the caller has to act: Finance decides proposals and revisions; regional ops executes approvals with no revision pending. */
+export const waitsFor = (caller: Pick<Caller, "canApprove">, r: { status: ActionStatus; pendingRevision?: PendingRevision | null }) =>
+  caller.canApprove ? r.status === "Proposed" || !!r.pendingRevision : r.status === "Approved" && !r.pendingRevision;
+
 /**
- * Actions waiting for this caller, per region: proposals for Finance to decide, and approvals
- * for regional ops to execute.
+ * Actions waiting for this caller, per region: proposals and revisions for Finance to decide, and
+ * approvals for regional ops to execute.
  */
 export function waitingFor(caller: Caller, actions: PlaybookAction[]): WaitingItem[] {
   return actions.flatMap((a) =>
     (a.byRegion ?? [])
-      .filter((r) => (caller.canApprove ? r.status === "Proposed" : r.status === "Approved"))
+      .filter((r) => waitsFor(caller, r))
       .map((r) => ({ actionId: a.actionId, action: a.action, ...r })),
   );
 }
