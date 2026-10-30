@@ -610,23 +610,35 @@ svg .marker-text {
 }
 
 .actions-table .c-action {
-  width: 43%;
+  width: 35%;
 }
 
 .actions-table .c-saving {
-  width: 14%;
+  width: 15%;
 }
 
 .actions-table .c-status {
-  width: 21%;
+  width: 24%;
 }
 
 .actions-table .c-next {
-  width: 22%;
+  width: 26%;
 }
 
+/* Break between words; split a word only if it cannot fit on a line at all. */
 .actions-table td {
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+/* Amounts, the setting field and button labels stay whole. */
+.actions-table td.num,
+.actions-table .setting-input {
+  white-space: nowrap;
+}
+
+.actions-table .buttons button {
+  padding: 4px 8px;
+  overflow-wrap: normal;
 }
 
 .action-tags {
@@ -2165,6 +2177,11 @@ input[type="range"].has-floor {
 
 .wf-scroll .wf-table {
   min-width: 420px;
+}
+
+/* Below this width the four decision columns cannot keep words whole, so the table scrolls instead. */
+.wf-scroll .actions-table {
+  min-width: 370px;
 }
 
 .trust-grid > * {

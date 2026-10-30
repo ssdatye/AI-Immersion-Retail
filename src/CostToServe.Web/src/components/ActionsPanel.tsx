@@ -132,6 +132,7 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
         applied to the <strong>Scenario outcomes</strong> right away; revoking removes them. Every step is logged with who, when and where.
         Savings are for {decisionRegion}, per action, and not additive.
       </p>
+      <div className="wf-scroll" tabIndex={0} role="region" aria-label="Actions and their decisions">
       <table className="table actions-table">
         <colgroup>
           <col className="c-action" />
@@ -318,6 +319,7 @@ export function ActionsPanel({ auth, caller, playbook, decisions, results, decis
           })}
         </tbody>
       </table>
+      </div>
       <ExecutionResultsView results={results} />
       <h3>Decision log</h3>
       {decisions.length === 0 ? (
