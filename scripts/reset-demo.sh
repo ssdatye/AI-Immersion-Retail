@@ -22,10 +22,12 @@ if [[ "$target" != "azure" ]]; then
   exec dotnet run --project "$repo_root/src/CostToServe.Api" --no-launch-profile -- reset "$@"
 fi
 
+# shellcheck source=lib-azure.sh
 source "$repo_root/scripts/lib-azure.sh"
 require_demo_rg
-export CostToServe__Cosmos__Endpoint="$(azure_output cosmosEndpoint)"
-export CostToServe__Cosmos__Database="$(azure_output cosmosDatabaseName)"
+CostToServe__Cosmos__Endpoint="$(azure_output cosmosEndpoint)"
+CostToServe__Cosmos__Database="$(azure_output cosmosDatabaseName)"
+export CostToServe__Cosmos__Endpoint CostToServe__Cosmos__Database
 restart=true
 args=()
 for arg in "$@"; do

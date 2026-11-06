@@ -178,7 +178,7 @@ app roles `FinanceAnalyst` and `RegionalOps`, assignment required) and the users
 `secrets/demo-users.local.txt` (git-ignored); each user changes it at first sign-in. It
 assigns Dana FinanceAnalyst and Luis RegionalOps, and writes Luis's region (Southeast) and
 the app IDs to git-ignored local settings. Requiring MFA is recommended. Re-running reuses
-existing objects and never resets passwords; `./scripts/teardown-entra.sh` removes them.
+existing objects and never resets passwords; `./scripts/teardown-entra.sh --purge` removes them.
 
 | Signed-in role | Sees                   | Can                                  |
 |----------------|------------------------|--------------------------------------|
@@ -319,8 +319,8 @@ az login
 ./scripts/chat.sh --as dana --ask "What if diesel rises 50 cents for 13 weeks? Do A1 plus A2 offset it?"
 ```
 
-`deploy-foundry.sh` writes the endpoint to `src/CostToServe.Api/appsettings.Local.json`
-(git-ignored). You can also set `Foundry__Endpoint` and `Foundry__Deployment`. The account
+`deploy-foundry.sh` (or `deploy-azure.sh --apply` for the hosted platform) writes the endpoint to
+`src/CostToServe.Api/appsettings.Local.json` (git-ignored), keeping any sign-in settings there. You can also set `Foundry__Endpoint` and `Foundry__Deployment`. The account
 accepts Entra tokens only; there are no keys.
 
 | Tool                  | Purpose                                                     |
@@ -370,24 +370,39 @@ accepts traffic only from APIM. Expect about $79-110 per month while the resourc
 mostly APIM Developer (about $48) and the B2 plan (about $25). A $100 monthly budget emails
 at 80% actual and 100% forecast spend.
 
+To stand the demo up from nothing (a fresh clone, no Azure resources, no Entra objects), run
+these in order. Each asks you to confirm; add `--yes` to skip the prompt.
+
 ```bash
-./scripts/deploy-azure.sh             # read-only preview of what would be created
-./scripts/deploy-azure.sh --apply     # billable; asks you to type 'deploy'; APIM takes 30-60 minutes
-./scripts/seed-azure-sql.sh           # load seed CSVs into SQL (asks you to type 'seed')
-./scripts/deploy-app.sh               # build and deploy the studio
-./scripts/setup-entra.sh --redirect-uri https://<apim>.azure-api.net
+az login
+./scripts/setup-entra.sh                 # 1. app registration and demo users; writes local settings
+./scripts/deploy-azure.sh                #    read-only preview of what would be created
+./scripts/deploy-azure.sh --apply        # 2. billable; about 30 minutes (APIM); writes outputs and Foundry settings
+./scripts/seed-azure-sql.sh              # 3. load the seed CSVs into Azure SQL
+./scripts/deploy-app.sh                  # 4. build and deploy the studio; waits until healthy
+./scripts/setup-entra.sh --redirect-uri https://<apim>.azure-api.net   # 5. allow sign-in from the studio URL
 ```
 
-The studio URL is `studioUrl` in `infra/azure-outputs.local.json` (git-ignored). For CI,
-`.github/workflows/deploy-demo.yml` deploys on manual dispatch through GitHub OIDC; its
+The studio URL is `studioUrl` in `infra/azure-outputs.local.json` (git-ignored); step 2 prints
+the exact step 5 command. Temporary passwords for `dana.demo` and `luis.demo` are in
+`secrets/demo-users.local.txt`. Re-running `deploy-azure.sh --apply` on an existing environment
+is safe and keeps the budget's start date. This sequence was validated on November 6, 2026:
+full teardown with purge, rebuild from scratch in about 45 minutes, then a signed-in chat
+through APIM, Cosmos DB, Azure SQL, Foundry, the evaluation project and Application Insights.
+
+For CI, `.github/workflows/deploy-demo.yml` deploys on manual dispatch through GitHub OIDC; its
 header lists the four environment variables to set.
 
-To stop all charges, delete the resource group. This is destructive; the script lists the
-resources and asks you to type the group name:
+To stop all charges and remove the demo, delete the resource group and the Entra objects.
+Both are destructive and ask you to type a confirmation:
 
 ```bash
-./scripts/teardown-azure.sh           # add --purge to free soft-deleted names for a redeploy
+./scripts/teardown-azure.sh --purge   # resource group, its budget, and the soft-deleted Key Vault, APIM and Foundry
+./scripts/teardown-entra.sh --purge   # app registration and demo users, also removed from the recycle bin
 ```
+
+`--purge` frees the names so the demo can be rebuilt right away with the same steps. Without
+it, soft-deleted resources keep their names for up to 30 days and block a rebuild.
 
 ## Reset the demo
 

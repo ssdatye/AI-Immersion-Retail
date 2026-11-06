@@ -13,8 +13,18 @@ source "$(dirname "${BASH_SOURCE[0]}")/lib-azure.sh"
 purge=false
 [[ "${1:-}" == "--purge" ]] && purge=true
 
+# The demo's monthly budget is scoped to the resource group but outlives it, so it is deleted
+# explicitly. Only this budget is touched.
+budget_url="https://management.azure.com/subscriptions/$(az account show --query id -o tsv)/resourceGroups/$demo_rg/providers/Microsoft.Consumption/budgets/cts-demo-monthly?api-version=2024-08-01"
+delete_budget() {
+  if az rest --method GET --url "$budget_url" -o none 2>/dev/null; then
+    az rest --method DELETE --url "$budget_url" -o none && echo "Deleted budget cts-demo-monthly."
+  fi
+}
+
 if ! az group show -n "$demo_rg" -o none 2>/dev/null; then
-  echo "Resource group $demo_rg does not exist. Nothing to delete."
+  echo "Resource group $demo_rg does not exist."
+  delete_budget
   exit 0
 fi
 
@@ -29,6 +39,7 @@ kv="$(az resource list -g "$demo_rg" --resource-type Microsoft.KeyVault/vaults -
 apim="$(az resource list -g "$demo_rg" --resource-type Microsoft.ApiManagement/service --query "[0].name" -o tsv)"
 foundry="$(az resource list -g "$demo_rg" --resource-type Microsoft.CognitiveServices/accounts --query "[0].name" -o tsv)"
 
+delete_budget
 az group delete -n "$demo_rg" --yes
 echo "Deleted $demo_rg."
 

@@ -58,7 +58,8 @@ param useSqlFreeLimit bool = true
 @description('Monthly budget alert amount in USD for the demo resource group.')
 param budgetAmount int = 100
 
-param budgetStartDate string = '2026-10-01'
+@description('First day of the budget\'s first month (yyyy-MM-01). A new monthly budget must start in the current month; deploy-azure.sh keeps an existing budget\'s start date.')
+param budgetStartDate string = '${utcNow('yyyy-MM')}-01'
 
 param tags object = {
   demo: 'walmart-cost-to-serve'

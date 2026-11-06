@@ -24,3 +24,18 @@ require_demo_rg() {
     exit 1
   fi
 }
+
+# Writes the Foundry endpoint and model deployment into the git-ignored local settings for local chat
+# and evaluations, keeping every other section (for example Entra from setup-entra.sh).
+write_foundry_settings() {
+  python3 - "$repo_root/src/CostToServe.Api/appsettings.Local.json" "$1" "$2" <<'PY'
+import json, os, sys
+path, endpoint, deployment = sys.argv[1:]
+settings = json.load(open(path)) if os.path.exists(path) else {}
+settings["Foundry"] = {"Endpoint": endpoint, "Deployment": deployment}
+with open(path, "w") as f:
+    json.dump(settings, f, indent=2)
+    f.write("\n")
+print(f"Wrote Foundry settings to {path} (git-ignored)")
+PY
+}

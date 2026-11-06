@@ -102,7 +102,8 @@ az ad app permission admin-consent --id "$app_id" >/dev/null
 secrets_file="$repo_root/secrets/demo-users.local.txt"
 mkdir -p "$repo_root/secrets"
 ensure_user() {
-  local alias="$1" display="$2" title="$3" upn="$1.demo@$domain" oid password
+  local alias="$1" display="$2" title="$3" oid password
+  local upn="$alias.demo@$domain"
   oid="$(az ad user list --filter "userPrincipalName eq '$upn'" --query "[0].id" -o tsv)"
   if [[ -z "$oid" ]]; then
     password="$(openssl rand -base64 24 | tr -d '/+=' | cut -c1-18)Aa1!"
