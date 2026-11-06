@@ -4,8 +4,9 @@
 # bill while they exist). DESTRUCTIVE and irreversible. Touches no other resource group.
 # Entra objects (app registration, demo users) are separate: ./scripts/teardown-entra.sh.
 #
-# --purge also purges the soft-deleted Key Vault, APIM and Foundry account so their names can
-# be reused by a redeploy.
+# Also deletes the demo's budget (it outlives the group) and the subscription-level deployment
+# records. --purge also purges the soft-deleted Key Vault, APIM and Foundry account so their
+# names can be reused by a redeploy.
 # Usage: ./scripts/teardown-azure.sh [--purge]
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/lib-azure.sh"
@@ -22,9 +23,20 @@ delete_budget() {
   fi
 }
 
+# Subscription-level deployment records keep the parameters used (for example the deployer's ID).
+delete_records() {
+  local deployment
+  for deployment in cts-demo-platform cts-demo-foundry; do
+    if az deployment sub show -n "$deployment" -o none 2>/dev/null; then
+      az deployment sub delete -n "$deployment" && echo "Deleted deployment record $deployment."
+    fi
+  done
+}
+
 if ! az group show -n "$demo_rg" -o none 2>/dev/null; then
   echo "Resource group $demo_rg does not exist."
   delete_budget
+  delete_records
   exit 0
 fi
 
@@ -48,5 +60,6 @@ if [[ "$purge" == true ]]; then
   [[ -n "$apim" ]] && az apim deletedservice purge --service-name "$apim" --location "$location" && echo "Purged APIM $apim."
   [[ -n "$foundry" ]] && az cognitiveservices account purge --name "$foundry" --resource-group "$demo_rg" --location "$location" && echo "Purged Foundry $foundry."
 fi
+delete_records
 rm -f "$outputs_file"
 echo "Done. Charges for these resources have stopped."

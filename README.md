@@ -397,7 +397,7 @@ To stop all charges and remove the demo, delete the resource group and the Entra
 Both are destructive and ask you to type a confirmation:
 
 ```bash
-./scripts/teardown-azure.sh --purge   # resource group, its budget, and the soft-deleted Key Vault, APIM and Foundry
+./scripts/teardown-azure.sh --purge   # resource group, its budget, deployment records, soft-deleted Key Vault, APIM, Foundry
 ./scripts/teardown-entra.sh --purge   # app registration and demo users, also removed from the recycle bin
 ```
 
