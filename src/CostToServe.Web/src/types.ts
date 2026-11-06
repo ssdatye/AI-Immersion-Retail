@@ -1,0 +1,375 @@
+export type Persona = "dana" | "luis";
+
+export interface Levers {
+  batch: number;
+  closer: number;
+  split: number;
+  pickup: number;
+  fee: number;
+  basket: boolean;
+  cap: boolean;
+}
+
+export const NO_LEVERS: Levers = { batch: 0, closer: 0, split: 0, pickup: 0, fee: 0, basket: false, cap: false };
+
+export interface Caller {
+  displayName: string;
+  title: string;
+  role: "FinanceAnalyst" | "RegionalOps";
+  scope: string;
+  canApprove: boolean;
+}
+
+export interface Preset {
+  id: string;
+  label: string;
+  dieselShift: number;
+  durationWeeks: number;
+  description: string;
+}
+
+export interface FuelRegion {
+  region: string;
+  currentWeekDiesel: number;
+  priorWeekDiesel: number;
+  daily: { date: string; diesel: number }[];
+  outlook: { weekStart: string; low: number; base: number; high: number }[];
+}
+
+export interface CostRow {
+  scope: string;
+  deliveryType: string;
+  priorUsd: number | null;
+  currentUsd: number | null;
+  changePct: number | null;
+}
+
+export interface Dashboard {
+  caller: Caller;
+  period: { dataStart: string; dataEnd: string; currentWeek: string; priorWeek: string };
+  seedVersion: string;
+  regions: string[];
+  fuel: FuelRegion[];
+  events: { date: string; eventType: string; region: string; effect: string; credibility: string }[];
+  costPerOrder: CostRow[];
+  presets: Preset[];
+  suggestions: string[];
+  leverLimits: {
+    batchMax: number;
+    closerMax: number;
+    splitMax: number;
+    pickupMax: number;
+    feeMin: number;
+    feeMax: number;
+    dieselShiftMin: number;
+    dieselShiftMax: number;
+    durationMinWeeks: number;
+    durationMaxWeeks: number;
+  };
+  actions: { id: string; levers: Levers; leversDerivedFromPlaybookText: boolean; source: string }[];
+}
+
+export interface GuardrailFinding {
+  code: string;
+  severity: "Blocking" | "ApprovalRequired" | "Warning" | "Constraint";
+  message: string;
+}
+
+export interface Guardrail {
+  passed: boolean;
+  expressWithin3HoursPct: number;
+  thresholdPct: number;
+  findings: GuardrailFinding[];
+}
+
+export interface ScenarioResult {
+  scope: string;
+  dieselChangeUsdPerGallon: number;
+  durationWeeks: number;
+  fuelShockQuarterCostUsd: number;
+  scenarioQuarterCostUsd: number;
+  netOperatingIncomeImpactUsd: number;
+  offsetOfFuelShockPct: number | null;
+  weeklyCostUsd: { baseline: number; withFuelShock: number; withLevers: number; withFuelShockAndLevers: number };
+  expressWithin3HoursPct: number;
+  promiseKeptPct: number;
+  availabilityPct: number;
+  guardrail: Guardrail;
+  method: string;
+  decidedPlan?: Record<string, string[]> | null;
+}
+
+export type ActionStatus = "Not reviewed" | "Proposed" | "Approved" | "Rejected" | "Executed";
+
+/** One action's decision state in one region. Decisions apply to one region at a time. */
+/** A revised setting regional ops proposed for an approved action; the approval stays in force until Finance decides. */
+export interface PendingRevision {
+  value: number;
+  text: string;
+  by: string;
+  at: string;
+  reason?: string | null;
+}
+
+export interface RegionDecision {
+  region: string;
+  status: ActionStatus;
+  availableDecisions: string[];
+  pendingRevision?: PendingRevision | null;
+  setting?: ActionSetting | null;
+  canAmendSetting: boolean;
+  latestDecisionBy?: string | null;
+  latestDecisionAt?: string | null;
+  latestDecisionReason?: string | null;
+}
+
+export interface PlaybookAction {
+  actionId: string;
+  action: string;
+  effect: string;
+  customerImpact: string;
+  approver: string;
+  guardrailRule: string;
+  leverMapping: string;
+  leverSource: string | null;
+  estimatedWeeklySavingUsd: number | null;
+  guardrailPassed: boolean | null;
+  guardrailFindings: string[];
+  /** Status and the fields below are for the playbook's decision region. */
+  status: ActionStatus;
+  region?: string | null;
+  latestDecision: string;
+  latestDecisionBy: string | null;
+  latestDecisionAt: string | null;
+  latestDecisionReason: string | null;
+  /** Decisions the signed-in user can take now (server-computed from role and workflow). */
+  availableDecisions: string[];
+  pendingRevision?: PendingRevision | null;
+  /** Levers at the currently decided setting (proposed or approved), else the playbook setting. */
+  levers?: Levers | null;
+  /** The adjustable lever (A1, A2, A4, A6); null or absent for on/off actions. Values are fractions. */
+  setting?: ActionSetting | null;
+  /** True when the caller can change the setting of the current step (ops: their proposal; finance: an approval). */
+  canAmendSetting: boolean;
+  /** Decision state in every region the caller can see. */
+  byRegion: RegionDecision[];
+  /** True for a custom package (ID like P-SE-01): a bundle of lever settings decided as one action, in its own region only. */
+  isPackage?: boolean;
+  packageRegion?: string | null;
+  createdBy?: string | null;
+  createdAt?: string | null;
+}
+
+export interface ActionSetting {
+  lever: string;
+  label: string;
+  value: number;
+  default: number;
+  min: number;
+  max: number;
+  step: number;
+  isDefault: boolean;
+  text: string;
+}
+
+export interface Playbook {
+  decisionRegion?: string | null;
+  savingsScope: string;
+  savingsNote: string;
+  actions: PlaybookAction[];
+}
+
+export interface DecisionRecord {
+  timestamp: string;
+  actionId: string;
+  actor: string;
+  decision: string;
+  reason: string;
+  setting: number | null;
+  region: string;
+}
+
+export interface ConfirmationCard {
+  id: string;
+  actionId: string;
+  actionName: string;
+  decision: string;
+  actor: string;
+  reason: string;
+  estimatedWeeklySavingUsd: number | null;
+  guardrailNotes: string[];
+  setting?: string | null;
+  region?: string | null;
+}
+
+export interface ExecutionResults {
+  status: "none" | "ok";
+  message?: string;
+  region?: string;
+  executedActions?: { actionId: string; executedBy: string; executedAt: string; setting?: string | null }[];
+  pilotZones?: string[];
+  controlZones?: string[];
+  expressCostPerOrderUsd?: {
+    pilotBefore: number;
+    pilotAfter: number;
+    pilotChangePct: number;
+    controlBefore: number;
+    controlAfter: number;
+    controlChangePct: number;
+  };
+  weeklySavingIfScaledUsd?: number;
+  expressWithin3HoursPct?: number;
+  guardrailPassed?: boolean;
+  method?: string;
+}
+
+/** Live evidence for one agent answer: each quoted number and the tool field (or other source) it came from. */
+export interface AnswerEvidence {
+  quoted: number;
+  traced: number;
+  unsupported: string[];
+  numbers: { text: string; source: string | null }[];
+  tools: { name: string; outcome: string; message?: string | null; decision?: string | null }[];
+  durationMs: number;
+  traceId?: string | null;
+  /** Model tokens for this answer and their list-price cost; tools use none. */
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  costUsd?: number | null;
+}
+
+export interface TrustCheck {
+  label: string;
+  pass: number;
+  fail: number;
+  "n/a"?: number;
+  skipped?: number;
+  /** Judge failures in cases where a tool refused by design or the person declined. */
+  refusals?: number;
+}
+
+export interface EvaluationSummary {
+  runId: string;
+  createdUtc: string;
+  model: string;
+  seedVersion: string;
+  cases: number;
+  personas: Record<string, number>;
+  /** Agent tokens for the run (judges not counted). */
+  tokens?: { input: number; cachedInput: number; output: number } | null;
+  passedAllChecks: number;
+  checks: Record<string, TrustCheck>;
+  judges: Record<string, TrustCheck> | null;
+  expectedRefusals: number;
+  numbersQuoted: number;
+  numbersUnsupported: number;
+  decisionCases: number;
+  engineParityCases: number;
+  foundry: { project: string; judgeModel: string; status: string; name?: string | null; evalId?: string | null; runId?: string | null } | null;
+  /** One row per question asked in the run (older summaries have none). */
+  caseRows?: EvaluationCase[];
+}
+
+/** One acceptance test: the question, the agent's answer, and what each check and judge found. */
+export interface EvaluationCase {
+  id: string;
+  persona: string;
+  category: string;
+  question: string;
+  /** Studio settings sent with the question as context, as the "Ask the agent about these changes" button does. */
+  studioSettings?: string | null;
+  expectation?: string | null;
+  answer: string;
+  tools: { name: string; outcome: string }[];
+  checks: Record<string, string>;
+  judges: Record<string, string> | null;
+  result: string;
+  refusalByDesign: boolean;
+  numbers: { text: string; source: string | null }[];
+  unsupported: string[];
+  durationMs: number;
+}
+
+export interface TrustTurn {
+  at: string;
+  who: string;
+  question: string;
+  tools: { name: string; outcome: string; message?: string | null; decision?: string | null }[];
+  quoted: number;
+  traced: number;
+  unsupported: string[];
+  durationMs: number;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  costUsd?: number | null;
+  traceId?: string | null;
+  errored: boolean;
+}
+
+export interface TraceSpan {
+  kind: "request" | "agent" | "model" | "tool" | "person" | "data";
+  label: string;
+  startMs: number;
+  durationMs: number;
+  error: boolean;
+  /** Model calls only; tools report 0 cost and no tokens. */
+  inputTokens?: number | null;
+  cachedInputTokens?: number | null;
+  outputTokens?: number | null;
+  costUsd?: number | null;
+}
+
+/** Token prices used for the cost figures, and the monthly projection. */
+export interface TokenPricing {
+  model: string;
+  inputPerMillionUsd: number;
+  cachedInputPerMillionUsd: number;
+  outputPerMillionUsd: number;
+  source: string;
+  asOf: string;
+  evaluationCostUsd?: number | null;
+  projection?: { answersPerDay: number; days: number; perAnswerUsd: number; monthlyUsd: number; basis: string } | null;
+}
+
+export interface TrustData {
+  evaluation: EvaluationSummary | null;
+  session: {
+    since: string;
+    answers: number;
+    errors: number;
+    numbersQuoted: number;
+    numbersTraced: number;
+    numbersToReview: number;
+    refusedByPolicy: number;
+    decisionsByPeople: number;
+    answersTraced: number;
+    medianMs: number | null;
+    tokens: number;
+    inputTokens?: number;
+    cachedInputTokens?: number;
+    outputTokens?: number;
+    costUsd?: number;
+    costPerAnswerUsd?: number | null;
+    toolCalls: number;
+    allUsers: { users: number; answers: number; numbersQuoted: number; numbersTraced: number; refusedByPolicy: number };
+  };
+  turns: TrustTurn[];
+  lastTrace: {
+    traceId: string;
+    question: string;
+    spans: TraceSpan[];
+    inputTokens?: number | null;
+    cachedInputTokens?: number | null;
+    outputTokens?: number | null;
+    costUsd?: number | null;
+  } | null;
+  pricing?: TokenPricing | null;
+  links: {
+    foundryEvaluations?: string | null;
+    foundryRun?: string | null;
+    appInsightsSearch?: string | null;
+    report?: string | null;
+    architecture?: string | null;
+  };
+  controls: { model: string; modelViaGateway: boolean; contentFilter: string; dataMode: string };
+}

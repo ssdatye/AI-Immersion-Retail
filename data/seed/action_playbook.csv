@@ -1,0 +1,7 @@
+action_id,action,lever,effect,customer_impact,approver,guardrail
+A1,Batch Express into 2-hour windows in dense zones,orders_per_route,+15% orders per route on affected Express orders,Medium-Low,Regional Delivery Ops Manager,Keep under-3-hour promise for at least 80% of Express orders
+A2,Fill from a closer store with stock,miles_per_order,-12% miles per order on 20% of delivery orders,Low,Regional Delivery Ops Manager,Only if item is in stock at the closer store
+A3,Minimum basket for Express in low-density zips,express_volume,"-5% Express orders, +$6 average basket",Medium-High,eCommerce Lead,Never in urban zones; review weekly
+A4,Consolidate split shipments for same-day orders,split_rate,-40% split-shipment rate,Low-Medium,Fulfillment Center Lead,No added delay beyond promised window
+A5,Enforce index-based cap on carrier fuel surcharge,carrier_surcharge,Surcharge cannot exceed contract index,None,Transportation Procurement + Legal,Contract terms only; no supplier price sharing
+A6,Pickup nudge (small incentive),channel_mix,Shift 3% of Same-day/Express to Pickup,Low,eCommerce Lead,Incentive under $1 per order; opt-in only

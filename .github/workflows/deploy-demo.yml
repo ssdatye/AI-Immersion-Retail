@@ -1,0 +1,56 @@
+# Builds, tests and deploys the What-If Studio to the demo web app.
+# Manual only (workflow_dispatch), so pushes never deploy or add cost by accident.
+# Azure sign-in uses GitHub OIDC with the demo's user-assigned deploy identity, which may only
+# deploy to the demo web app (Website Contributor on that app). No secrets are stored.
+#
+# One-time setup (values from infra/azure-outputs.local.json and `az account show`):
+#   GitHub environment "demo" with variables AZURE_CLIENT_ID (deployIdentityClientId),
+#   AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID, AZURE_WEBAPP_NAME (webAppName).
+name: Deploy demo
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: demo
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/CostToServe.Web/package-lock.json
+
+      - name: Build front end
+        run: |
+          npm ci --prefix src/CostToServe.Web --no-audit --no-fund
+          npm test --prefix src/CostToServe.Web
+          npm run build --prefix src/CostToServe.Web
+
+      - name: Test
+        run: dotnet test CostToServe.slnx -c Release
+
+      - name: Publish
+        run: dotnet publish src/CostToServe.Api -c Release -o publish
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          package: publish

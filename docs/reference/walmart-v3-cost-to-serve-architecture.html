@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Walmart Cost-to-Serve Intelligence – Architecture Design</title>
+<style>
+:root{--bg:#fff;--fg:#1b1f24;--mut:#5b6470;--ac:#0053e2;--ac2:#ffc220;--card:#f4f7fb;--bd:#d9e0ea;--ok:#1e7b34;--warn:#a15c00;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#121519;--fg:#e8ecf1;--mut:#9aa5b1;--ac:#6aa1ff;--card:#1c2128;--bd:#2f3742}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.55 "Segoe UI",system-ui,sans-serif}
+main{max-width:1180px;margin-inline:auto;padding:28px 24px 60px}
+h1{font-size:28px;margin:0 0 4px}h2{border-block-end:3px solid var(--ac2);padding-block-end:4px;margin-block-start:40px}h3{margin-block:22px 8px}
+.sub{color:var(--mut)}.tag{display:inline-block;font-size:11px;font-weight:600;padding:1px 7px;border-radius:9px;border:1px solid var(--bd);margin-inline-end:4px}
+.ok{color:var(--ok)}.warn{color:var(--warn)}.bad{color:var(--bad)}
+table{border-collapse:collapse;width:100%;margin-block:8px;font-size:13.5px}th,td{border:1px solid var(--bd);padding:6px 8px;text-align:start;vertical-align:top}
+th{background:var(--card)}td.n{text-align:end;white-space:nowrap}td.s{color:var(--mut);font-size:12px}tr.t td{font-weight:700;background:var(--card)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-block:16px}
+.kpi{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:12px}.kpi b{display:block;font-size:22px;color:var(--ac)}
+.dia{border:1px solid var(--bd);border-radius:12px;padding:14px;background:var(--card)}
+.lane{display:grid;grid-template-columns:150px 1fr;gap:10px;align-items:stretch;margin-block:8px}
+.lane>.lbl{font-weight:700;font-size:12px;text-transform:uppercase;color:var(--mut);display:flex;align-items:center}
+.boxes{display:flex;flex-wrap:wrap;gap:8px}.bx{flex:1 1 150px;background:var(--bg);border:1.5px solid var(--ac);border-radius:8px;padding:7px 9px;font-size:13px}
+.bx small{display:block;color:var(--mut)}.bx.sec{border-color:var(--ac2)}.bx.ext{border-style:dashed;border-color:var(--mut)}
+.arrow{text-align:center;color:var(--mut);font-size:13px;margin-block:2px}
+.note{border-inline-start:4px solid var(--ac);background:var(--card);padding:10px 14px;border-radius:6px;margin-block:12px}
+@media print{main{max-width:none}h2{break-after:avoid}.dia,table{break-inside:avoid}}
+</style></head><body><main>
+<h1>Fuel &amp; Cost-to-Serve Intelligence — Architecture Design</h1>
+<div class="sub">Walmart Inc. · Architect Transformation Program (Retail) · Version 1.0 · 28 October 2026 · Prepared by Sarang Datye<br>
+<span class="tag">Demo: illustrative data</span><span class="tag">Prices: Azure published pay-as-you-go list, US East, USD — validate before quoting</span></div>
+
+<h2>1. Summary</h2>
+<p>The team's demo approach works and has <b class="ok">no blockers</b>. It runs a real agent (Microsoft Agent Framework on App Service, with a Foundry-hosted model) over illustrative data in Azure SQL and Cosmos DB. Dana and Luis sign in with their own Entra accounts. Production keeps the same building blocks but adds private networking, an API gateway, live data integration, governance, and separate dev/test/prod environments.</p>
+<div class="kpis">
+<div class="kpi"><b>$76/mo</b>Demo environment, approx.</div>
+<div class="kpi"><b>$21,776/mo</b>Production run cost, approx.</div>
+<div class="kpi"><b>$26,529/mo</b>Prod + dev/test (≈ $0.32M/yr)</div>
+<div class="kpi"><b>$0.96M–$1.92M</b>One-time build (illustrative)</div>
+</div>
+
+<h2>2. Review of the demo strategy</h2>
+<table><tr><th>#</th><th>Decision</th><th>Verdict</th><th>Recommendation</th></tr>
+<tr><td>1</td><td>Lightweight JavaScript front end</td><td class="ok">Fine</td><td>Use Vite with React or Preact, or keep the current vanilla JS studio. Serve it from the same App Service as the API so you have one URL and one sign-in.</td></tr>
+<tr><td>2</td><td>Data in CSV, Azure SQL or Cosmos DB</td><td class="ok">Fine; pick a role for each</td><td><b>Azure SQL</b> holds the structured cost facts (orders, routes, fuel, zones), because what-if maths and SUMs suit SQL. <b>Cosmos DB</b> holds agent threads, scenario snapshots and the decision log. Keep the CSVs only as the seed source.</td></tr>
+<tr><td>3</td><td>Microsoft Agent Framework agent on App Service</td><td class="ok">Fine</td><td>Expose the cost engine as <b>tools</b> (functions) the agent calls, such as <code>get_cost_per_order</code>, <code>run_scenario</code>, <code>check_guardrail</code> and <code>log_decision</code>. The numbers then come from code, not from the model. Use managed identity to reach Foundry, SQL and Cosmos.</td></tr>
+<tr><td>4</td><td>Foundry for the model</td><td class="ok">Fine</td><td>Deploy GPT-4.1 or GPT-4.1-mini (Global Standard). Turn on content filters. Keep prompts and tool schemas in source control.</td></tr>
+<tr><td>5</td><td>No Teams; sign in as Dana and Luis</td><td class="ok">Fine</td><td>Register one Entra app with <b>app roles</b> (<code>FinanceAnalyst</code> for Dana, <code>RegionalOps</code> for Luis). Use App Service authentication (Easy Auth) or MSAL. The API reads the role and region claims to choose the dashboard and filter the data, for example Luis sees Southeast only. Approvals happen inside the studio and are written to the decision log.</td></tr>
+</table>
+<div class="note"><b>Watch-outs (not blockers):</b>
+<ol>
+<li>Create the demo users in a <b>non-customer dev tenant</b>, give them MFA, and don't use real Walmart names or data.</li>
+<li>Check that Foundry model quota exists in your region before tomorrow.</li>
+<li>Keep the scripted fallback from the HTML demo in case the model or network fails live.</li>
+<li>Pre-warm the App Service: use B2 or higher with Always On.</li>
+</ol></div>
+
+<h2>3. Demo architecture (non-production)</h2>
+<div class="dia">
+<div class="lane"><div class="lbl">Users</div><div class="boxes"><div class="bx">Dana<small>Dir. Fulfillment Finance · role FinanceAnalyst</small></div><div class="bx">Luis<small>SE Regional Delivery Ops · role RegionalOps</small></div></div></div>
+<div class="arrow">▼ browser, Entra sign-in (dev tenant)</div>
+<div class="lane"><div class="lbl">Identity</div><div class="boxes"><div class="bx sec">Microsoft Entra ID<small>App registration, app roles, test users with MFA</small></div></div></div>
+<div class="arrow">▼ HTTPS</div>
+<div class="lane"><div class="lbl">App tier</div><div class="boxes"><div class="bx">App Service B2 (Linux)<small>Static JS What-If Studio + Agent Framework API (one app)</small></div></div></div>
+<div class="arrow">▼ managed identity</div>
+<div class="lane"><div class="lbl">AI</div><div class="boxes"><div class="bx">Azure AI Foundry<small>GPT-4.1 / 4.1-mini, content filters</small></div><div class="bx">Agent tools (code)<small>cost engine, scenario, guardrail, decision log</small></div></div></div>
+<div class="lane"><div class="lbl">Data</div><div class="boxes"><div class="bx">Azure SQL (serverless)<small>cost facts seeded from the 10 CSVs</small></div><div class="bx">Cosmos DB (serverless)<small>threads, scenarios, approvals</small></div><div class="bx sec">Key Vault + App Insights<small>secrets, traces</small></div></div></div>
+</div>
+
+<h2>4. Proposed production architecture</h2>
+<div class="dia">
+<div class="lane"><div class="lbl">Users</div><div class="boxes"><div class="bx">Fulfillment finance<small>Dana persona</small></div><div class="bx">Regional delivery ops<small>Luis persona</small></div><div class="bx">CFO / leadership<small>read-only scenarios</small></div><div class="bx ext">Optional later<small>Teams / M365 Copilot channel</small></div></div></div>
+<div class="arrow">▼</div>
+<div class="lane"><div class="lbl">Edge &amp; identity</div><div class="boxes"><div class="bx sec">Azure Front Door Premium + WAF<small>global entry, DDoS, bot rules, Private Link to origin</small></div><div class="bx sec">Entra ID (Walmart tenant)<small>SSO, Conditional Access, app roles, PIM</small></div></div></div>
+<div class="arrow">▼ private link</div>
+<div class="lane"><div class="lbl">Experience &amp; API</div><div class="boxes"><div class="bx">App Service P1v3 ×3 (zone-redundant)<small>What-If Studio front end</small></div><div class="bx sec">API Management Standard v2<small>auth, throttling, token limits, versioning</small></div><div class="bx">App Service P2v3 ×3 (zone-redundant)<small>Agent Framework API: orchestrator + cost-to-serve, market, ops agents</small></div></div></div>
+<div class="arrow">▼ VNet integration · private endpoints · managed identity</div>
+<div class="lane"><div class="lbl">AI services</div><div class="boxes"><div class="bx">Azure AI Foundry<small>GPT-4.1 + 4.1-mini, evaluations, tracing</small></div><div class="bx sec">AI Content Safety<small>prompt shields, groundedness</small></div><div class="bx">Azure AI Search<small>playbooks, contracts, policy retrieval</small></div><div class="bx">Azure Machine Learning<small>fuel-price, demand and route models</small></div></div></div>
+<div class="lane"><div class="lbl">Operational data</div><div class="boxes"><div class="bx">Azure SQL DB (GP, ZR)<small>curated cost-to-serve marts</small></div><div class="bx">Cosmos DB<small>agent threads, scenarios, decision and audit log</small></div></div></div>
+<div class="arrow">▲ curated loads</div>
+<div class="lane"><div class="lbl">Data platform</div><div class="boxes"><div class="bx">Microsoft Fabric F64<small>pipelines, lakehouse raw → curated, OneLake shortcuts</small></div><div class="bx">Event Hubs<small>telematics stream</small></div><div class="bx">ADLS Gen2<small>landing, backups</small></div></div></div>
+<div class="arrow">▲</div>
+<div class="lane"><div class="lbl">Sources</div><div class="boxes"><div class="bx ext">Fleet telematics &amp; fuel cards</div><div class="bx ext">TMS &amp; carrier invoices (EDI)</div><div class="bx ext">Order mgmt / fulfillment</div><div class="bx ext">Fuel &amp; market data feeds (licensed)</div></div></div>
+<div class="lane"><div class="lbl">Cross-cutting</div><div class="boxes"><div class="bx sec">Key Vault</div><div class="bx sec">Defender for Cloud</div><div class="bx sec">Purview (catalog, lineage, labels)</div><div class="bx sec">Azure Monitor + App Insights</div><div class="bx sec">Hub-spoke VNet, private DNS, NAT</div></div></div>
+</div>
+
+<h3>Key design principles</h3>
+<ul>
+<li><b>Numbers come from tools, not the model.</b> Every cost, scenario or guardrail value is computed by the code or SQL tools and quoted by the agent with its source.</li>
+<li><b>People approve.</b> Agents recommend. Approvals are role-checked, logged in Cosmos DB with who, what, when and the evidence, and pushed to the TMS/OMS only through APIM after approval.</li>
+<li><b>Least privilege.</b> Managed identities everywhere. Row-level security by region in SQL. No public endpoints on data or AI services.</li>
+<li><b>Fits Walmart's multi-cloud estate.</b> Read through OneLake shortcuts or APIs where data already lives; don't duplicate systems of record.</li>
+<li><b>Resilience.</b> Zone-redundant app and data tiers. Foundry Global Standard for model availability. Point-in-time restore for SQL and continuous backup for Cosmos.</li>
+</ul>
+
+<h2>5. Demo → production mapping</h2>
+<table><tr><th>Layer</th><th>Demo</th><th>Production</th></tr>
+<tr><td>Front end</td><td>JS studio on App Service B2</td><td>Same code, P1v3 ×3, behind Front Door + WAF</td></tr>
+<tr><td>Identity</td><td>Dev tenant, two test users, app roles</td><td>Walmart Entra, groups mapped to roles, Conditional Access, PIM for admins</td></tr>
+<tr><td>Agent</td><td>Agent Framework, one orchestrator + tools</td><td>Multi-agent (orchestrator, cost-to-serve, market, operations), evaluations and red-teaming in CI/CD</td></tr>
+<tr><td>Model</td><td>Foundry pay-per-token</td><td>Foundry Global/Data Zone Standard; consider provisioned throughput (PTU) if usage is steady</td></tr>
+<tr><td>Data</td><td>CSV-seeded SQL + Cosmos (serverless)</td><td>Fabric pipelines from live sources → SQL marts; Cosmos autoscale</td></tr>
+<tr><td>Approvals</td><td>In-studio approve/reject, logged</td><td>Same, plus write-back to TMS/OMS via APIM, immutable audit</td></tr>
+<tr><td>Network</td><td>Public endpoint + Entra</td><td>Hub-spoke VNet, private endpoints, no public data or AI endpoints</td></tr>
+<tr><td>Ops</td><td>App Insights</td><td>Monitor, alerts, cost budgets, dev/test/prod with IaC (Bicep/Terraform) and GitHub Actions</td></tr>
+</table>
+
+<h2>6. Cost estimate</h2>
+<p class="sub">Monthly cost = quantity × unit price, using Azure published pay-as-you-go list prices (US East, USD, 730 hours a month). These are planning estimates. Confirm them in the Azure pricing calculator; Walmart's enterprise agreement and reservations will differ.</p>
+
+<h3>6.1 Demo environment</h3>
+<table><tr><th>Component</th><th>SKU / sizing</th><th>Qty</th><th>Unit $/mo</th><th>$/mo</th><th>Basis</th></tr>
+<tr><td>App Service (frontend + agent API)</td><td>Basic B2 Linux, 1 instance</td><td class=n>1</td><td class=n>$25.55</td><td class=n>$26</td><td class=s>$0.035/h</td></tr>
+<tr><td>Foundry – GPT-4.1-mini / GPT-4.1</td><td>~5M tokens over demo prep</td><td class=n>1</td><td class=n>$25.00</td><td class=n>$25</td><td class=s>pay per token</td></tr>
+<tr><td>Azure SQL Database</td><td>Serverless GP, 1 vCore, auto-pause</td><td class=n>1</td><td class=n>$15.00</td><td class=n>$15</td><td class=s>compute while active + storage</td></tr>
+<tr><td>Azure Cosmos DB</td><td>Serverless</td><td class=n>1</td><td class=n>$5.00</td><td class=n>$5</td><td class=s>$0.25 per 1M RU</td></tr>
+<tr><td>Key Vault + App Insights</td><td>Standard; under 5 GB logs</td><td class=n>1</td><td class=n>$5.00</td><td class=n>$5</td><td class=s>first 5 GB free</td></tr>
+<tr class="t"><td colspan="4">Demo total (approx.)</td><td class="n">$76</td><td></td></tr></table>
+
+<h3>6.2 Production run cost</h3>
+<p class="sub">Load assumptions: about 300 users × 50 agent questions per working day × 22 days ≈ 330K questions a month at about 6K tokens each ≈ 2B tokens, split 80% input and 20% output.</p>
+<table><tr><th>Component</th><th>SKU / sizing</th><th>Qty</th><th>Unit $/mo</th><th>$/mo</th><th>Basis</th></tr>
+<tr><td>Front Door Premium + WAF</td><td>Premium base + ~1 TB egress</td><td class=n>1</td><td class=n>$410.00</td><td class=n>$410</td><td class=s>$330/mo base + data transfer</td></tr>
+<tr><td>App Service – frontend (What-If Studio)</td><td>Premium v3 P1v3 Linux, zone-redundant</td><td class=n>3</td><td class=n>$124.10</td><td class=n>$372</td><td class=s>$0.170/h × 730</td></tr>
+<tr><td>App Service – Agent Framework API</td><td>Premium v3 P2v3 Linux, zone-redundant</td><td class=n>3</td><td class=n>$248.20</td><td class=n>$745</td><td class=s>$0.340/h × 730</td></tr>
+<tr><td>API Management</td><td>Standard v2, 1 unit</td><td class=n>1</td><td class=n>$700.00</td><td class=n>$700</td><td class=s>published unit price</td></tr>
+<tr><td>Foundry – GPT-4.1 (Global Standard)</td><td>1.6B input + 0.4B output tokens/mo</td><td class=n>1</td><td class=n>$6,400.00</td><td class=n>$6,400</td><td class=s>$2 / $8 per 1M tokens</td></tr>
+<tr><td>Foundry – GPT-4.1-mini (routing, summaries)</td><td>0.5B input + 0.1B output tokens/mo</td><td class=n>1</td><td class=n>$360.00</td><td class=n>$360</td><td class=s>$0.40 / $1.60 per 1M tokens</td></tr>
+<tr><td>Azure AI Content Safety</td><td>~660K text records/mo</td><td class=n>1</td><td class=n>$495.00</td><td class=n>$495</td><td class=s>$0.75 per 1K records</td></tr>
+<tr><td>Azure AI Search</td><td>Standard S1, 2 replicas</td><td class=n>2</td><td class=n>$245.28</td><td class=n>$491</td><td class=s>$0.336/h per SU</td></tr>
+<tr><td>Azure SQL Database</td><td>General Purpose, 4 vCore Gen5, zone-redundant</td><td class=n>1</td><td class=n>$1,105.00</td><td class=n>$1,105</td><td class=s>vCore PAYG incl. licence, ZR uplift</td></tr>
+<tr><td>Azure Cosmos DB (agent threads, state)</td><td>Autoscale, max 10K RU/s, ~4K avg</td><td class=n>1</td><td class=n>$350.00</td><td class=n>$350</td><td class=s>$0.012 per 100 RU/s-h (autoscale) + storage</td></tr>
+<tr><td>Microsoft Fabric (ingestion, lakehouse, curated)</td><td>F64 capacity, pay-as-you-go</td><td class=n>1</td><td class=n>$8,409.60</td><td class=n>$8,410</td><td class=s>$11.52/h × 730</td></tr>
+<tr><td>Event Hubs (telematics stream)</td><td>Standard, 4 TU</td><td class=n>4</td><td class=n>$21.90</td><td class=n>$88</td><td class=s>$0.030/h per TU + ingress</td></tr>
+<tr><td>Azure Machine Learning endpoints</td><td>2 × D4s_v3 managed online + training</td><td class=n>1</td><td class=n>$580.32</td><td class=n>$580</td><td class=s>VM rate + ~$300 training</td></tr>
+<tr><td>Key Vault</td><td>Standard, ~2M ops</td><td class=n>1</td><td class=n>$10.00</td><td class=n>$10</td><td class=s>$0.03 per 10K ops</td></tr>
+<tr><td>Private endpoints</td><td>~14 endpoints</td><td class=n>14</td><td class=n>$7.30</td><td class=n>$102</td><td class=s>$0.01/h each + data</td></tr>
+<tr><td>VNet, NAT Gateway, DNS</td><td>Hub-spoke networking</td><td class=n>1</td><td class=n>$120.00</td><td class=n>$120</td><td class=s>NAT $32 + processing + DNS zones</td></tr>
+<tr><td>Azure Monitor / App Insights</td><td>~150 GB logs/mo</td><td class=n>150</td><td class=n>$2.30</td><td class=n>$345</td><td class=s>$2.30 per GB ingested</td></tr>
+<tr><td>Microsoft Defender for Cloud</td><td>App Service, SQL, Cosmos, Key Vault, AI</td><td class=n>1</td><td class=n>$260.00</td><td class=n>$260</td><td class=s>per-resource plans</td></tr>
+<tr><td>Microsoft Purview</td><td>Data Map, 1 capacity unit + scans</td><td class=n>1</td><td class=n>$330.00</td><td class=n>$330</td><td class=s>CU-hour + scan vCore-hours</td></tr>
+<tr><td>Storage (ADLS Gen2, backups)</td><td>~5 TB hot</td><td class=n>5000</td><td class=n>$0.02</td><td class=n>$104</td><td class=s>$0.0208 per GB</td></tr>
+<tr class="t"><td colspan="4">Production total (approx.)</td><td class="n">$21,776</td><td></td></tr></table>
+
+<h3>6.3 Summary</h3>
+<table><tr><th>Item</th><th>Estimate</th><th>Notes</th></tr>
+<tr><td>Production run</td><td class="n">$21,776/mo</td><td>Model tokens are $6,760 of this. Fabric F64 is the largest fixed item.</td></tr>
+<tr><td>Dev + test environments</td><td class="n">$4,753/mo</td><td>Smaller SKUs, a shared smaller Fabric capacity, little token use (an assumption)</td></tr>
+<tr class="t"><td>Total run</td><td class="n">$26,529/mo</td><td>≈ $0.32M a year</td></tr>
+<tr><td>Reserved Fabric F64 (1-year)</td><td class="n">−$3,406/mo</td><td>Takes the annual run to about $0.28M</td></tr>
+<tr><td>One-time build</td><td class="n">$0.96M–$1.92M</td><td>120–160 person-weeks at an illustrative $8–12K blended rate; replace with real ISD rates</td></tr>
+<tr><td>Not included</td><td colspan="2">Licensed fuel/market data, Walmart team time, TMS/OMS changes, Microsoft 365 Copilot licences, a support contract, egress beyond 1 TB.</td></tr>
+</table>
+
+<h3>6.4 What drives the cost</h3>
+<ul>
+<li><b>Model tokens:</b> they scale with users × questions × context size. Routing simple turns to the mini model and caching prompts can cut 30–60%. This is an estimate to test.</li>
+<li><b>Fabric capacity:</b> it is fixed. If Walmart already has Fabric capacity, this item may be shared and drop away.</li>
+<li><b>High availability:</b> zone redundancy roughly doubles app-tier cost. That is a choice to agree with Walmart.</li>
+</ul>
+<div class="note"><b>Value context (scenario, not a forecast):</b> 5% of Walmart's stated "more than $2 billion" extra fuel cost would be about $100M a year. Against that, build plus first-year run would pay back in about 8 days. Confirm the baseline cost per order with Walmart before using this.</div>
+
+<h2>7. Risks and items to validate</h2>
+<table><tr><th>Item</th><th>Label</th><th>Action</th></tr>
+<tr><td>Prices are list, not contract</td><td><span class="tag">Must validate</span></td><td>Run the Azure pricing calculator and check with the account team</td></tr>
+<tr><td>Walmart's data platform and cloud choices</td><td><span class="tag">Must validate</span></td><td>Confirm where telematics, TMS and OMS data live, and how to integrate (OneLake shortcuts or APIs)</td></tr>
+<tr><td>Usage volumes (300 users, 50 questions)</td><td><span class="tag">Our view</span></td><td>Confirm the user count and pilot scope</td></tr>
+<tr><td>Fuel hedging scope</td><td><span class="tag">Out of scope</span></td><td>Walmart's hedging practice is not public; treat it as a later phase</td></tr>
+<tr><td>Model or region availability</td><td><span class="tag">Must validate</span></td><td>Check Foundry quota and data-residency needs</td></tr>
+</table>
+<p class="sub">Sources for prices: Azure pricing pages for App Service, Front Door, API Management, Azure OpenAI in Foundry, Azure SQL Database, Cosmos DB, Microsoft Fabric, AI Search, Event Hubs, Monitor, Defender for Cloud, Purview (azure.microsoft.com/pricing). Walmart figure: Q2 FY27 earnings call, CFO John David Rainey.</p>
+</main></body></html>

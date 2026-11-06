@@ -1,0 +1,340 @@
+import { useState } from "react";
+import { failureText } from "../api";
+import type { ApiAuth } from "../auth";
+import { toPercent, usdCompact } from "../format";
+import { waitsFor, type WaitingItem } from "../pending";
+import type { Caller, DecisionRecord, ExecutionResults, Playbook, PlaybookAction } from "../types";
+import { ExecutionResultsView } from "./ExecutionResultsView";
+import { submitDecision } from "./DecisionStrip";
+
+interface Props {
+  auth: ApiAuth;
+  caller: Caller;
+  playbook: Playbook | null;
+  decisions: DecisionRecord[];
+  results: ExecutionResults | null;
+  /** The region these decisions apply to. Finance can switch; regional ops have one region. */
+  decisionRegion: string;
+  regions: string[];
+  onRegion: (region: string) => void;
+  /** Waiting items in every region, for the tab counts. */
+  waiting: WaitingItem[];
+  onChanged: () => void;
+}
+
+type Decision = "propose" | "approve" | "reject" | "execute";
+
+const IMPACT_CLASS: Record<string, string> = { None: "lo", Low: "lo", "Low-Medium": "md", "Medium-Low": "md", "Medium-High": "hi" };
+const STATUS_CLASS: Record<string, string> = {
+  "Not reviewed": "st-none",
+  Proposed: "st-proposed",
+  Approved: "st-approved",
+  Rejected: "st-rejected",
+  Executed: "st-executed",
+};
+const PAST: Record<string, string> = { propose: "Proposed", approve: "Approved", reject: "Rejected", execute: "Executed" };
+
+export const when = (iso: string) => {
+  const d = new Date(iso);
+  const time = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  return d.toDateString() === new Date().toDateString() ? time : `${d.toLocaleDateString([], { month: "short", day: "numeric" })} ${time}`;
+};
+
+/** What the caller is waiting for when they have no step to take. */
+function waitingHint(action: PlaybookAction, isFinance: boolean) {
+  if (action.pendingRevision) {
+    return isFinance
+      ? `Approve ${toPercent(action.pendingRevision.value)}% or decline to keep ${action.setting ? `${toPercent(action.setting.value)}%` : "the approved setting"}.`
+      : "Your revision is waiting for Finance. Executing now runs the approved setting.";
+  }
+  switch (action.status) {
+    case "Executed":
+      return "Done. Reset the demo to start over.";
+    case "Proposed":
+      return isFinance ? "" : "Waiting for Finance to approve.";
+    case "Approved":
+      return isFinance ? "Waiting for Ops to execute." : "";
+    default:
+      return "";
+  }
+}
+
+export function ActionsPanel({ auth, caller, playbook, decisions, results, decisionRegion, regions, onRegion, waiting, onChanged }: Props) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ actionId: string; text: string; error: boolean } | null>(null);
+  const [rejecting, setRejecting] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
+  // Draft settings in percent, per action, until a decision is logged.
+  const [drafts, setDrafts] = useState<Record<string, number>>({});
+  const isFinance = caller.canApprove;
+  const needsYou = (a: PlaybookAction) => waitsFor(caller, a);
+
+  const decide = async (actionId: string, decision: Decision, why?: string, settingPct?: number) => {
+    setBusy(actionId);
+    setFeedback(null);
+    try {
+      const r = await submitDecision(auth, actionId, decision, why, settingPct === undefined ? undefined : settingPct / 100, decisionRegion);
+      const at = settingPct === undefined ? "" : ` at ${settingPct}%`;
+      setFeedback({
+        actionId,
+        text: r.status === "already_recorded" && r.message ? `✓ ${r.message}` : `✓ ${PAST[decision]}${at} for ${decisionRegion} by you just now.`,
+        error: false,
+      });
+      setRejecting(null);
+      setReason("");
+      setDrafts(({ [actionId]: _, ...rest }) => rest);
+    } catch (e) {
+      setFeedback({ actionId, text: failureText(e), error: true });
+    } finally {
+      setBusy(null);
+      // Always reload: after an error or a dropped connection the server may already have moved on.
+      onChanged();
+    }
+  };
+
+  const steps = [
+    { n: 1, text: "Regional ops proposes", mine: !isFinance },
+    { n: 2, text: "Finance approves or rejects", mine: isFinance },
+    { n: 3, text: "Regional ops executes → results", mine: !isFinance },
+  ];
+
+  return (
+    <section className="panel">
+      <h2>
+        Actions and decisions <span className="muted">· for {decisionRegion}</span>
+      </h2>
+      {caller.canApprove ? (
+        <div className="region-tabs" role="tablist" aria-label="Region these decisions apply to">
+          <span className="muted small">Decide for</span>
+          {regions.map((r) => {
+            const count = waiting.filter((w) => w.region === r).length;
+            return (
+              <button key={r} role="tab" aria-selected={r === decisionRegion} className={r === decisionRegion ? "tab on" : "tab"} onClick={() => onRegion(r)}>
+                {r}
+                {count > 0 && <span className="tab-count">{count}</span>}
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="muted small">Your decisions apply to {decisionRegion} only.</p>
+      )}
+      <ol className="workflow" aria-label="How decisions work">
+        {steps.map((s) => (
+          <li key={s.n} className={s.mine ? "mine" : ""}>
+            <span className="step">{s.n}</span> {s.text}
+            {s.mine && <span className="you">you</span>}
+          </li>
+        ))}
+      </ol>
+      <p className="muted small">
+        Each decision applies to one region: approving for {decisionRegion} changes {decisionRegion}'s numbers only. Approved actions are
+        applied to the <strong>Scenario outcomes</strong> right away; revoking removes them. Every step is logged with who, when and where.
+        Savings are for {decisionRegion}, per action, and not additive.
+      </p>
+      <div className="wf-scroll" tabIndex={0} role="region" aria-label="Actions and their decisions">
+      <table className="table actions-table">
+        <colgroup>
+          <col className="c-action" />
+          <col className="c-saving" />
+          <col className="c-status" />
+          <col className="c-next" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th>Action</th>
+            <th className="num">Weekly saving</th>
+            <th>Status</th>
+            <th>Your next step</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...(playbook?.actions ?? [])]
+            .sort((x, y) => Number(needsYou(y)) - Number(needsYou(x)))
+            .map((a) => {
+            const available = a.availableDecisions as Decision[];
+            const rowFeedback = feedback?.actionId === a.actionId ? feedback : null;
+            const spec = a.setting ?? null;
+            const editable = spec !== null && (available.includes("propose") || available.includes("approve") || a.canAmendSetting);
+            const current = spec ? toPercent(spec.value) : 0;
+            const draft = spec ? (drafts[a.actionId] ?? current) : 0;
+            const draftValid = spec !== null && Number.isFinite(draft) && draft >= toPercent(spec.min) && draft <= toPercent(spec.max);
+            const changed = editable && draft !== current;
+            // Proposing or approving sends the draft only when it differs; otherwise the server keeps the current setting.
+            const settingFor = (d: Decision) => (changed && (d === "propose" || d === "approve") ? draft : undefined);
+            const revision = a.pendingRevision ?? null;
+            // Regional ops revises an approved action by proposing a different setting; the approval stays in force meanwhile.
+            const revising = !isFinance && a.status === "Approved";
+            const amendTo = a.canAmendSetting && changed && !revision ? (a.status === "Approved" ? "approve" : "propose") : null;
+            const shown = available.filter((d) => !(d === "propose" && revising && !changed));
+            const label = (d: Decision) =>
+              d === "reject" && revision
+                ? "Decline revision"
+                : d === "reject" && a.status === "Approved"
+                  ? "Revoke"
+                  : d === "approve" && revision && settingFor(d) === undefined
+                    ? `Approve ${toPercent(revision.value)}%`
+                    : d === "propose" && revising
+                      ? `Propose ${draft}% instead`
+                      : `${d[0].toUpperCase() + d.slice(1)}${settingFor(d) !== undefined ? ` at ${draft}%` : ""}`;
+            return (
+              <tr
+                key={a.actionId}
+                id={`action-row-${a.actionId}`}
+                className={[rowFeedback && !rowFeedback.error ? "flash" : "", needsYou(a) ? "needs-you" : ""].join(" ").trim()}
+              >
+                <td>
+                  {needsYou(a) && <span className="you-tag">Waiting for you</span>}
+                  <strong>{a.actionId}</strong> {a.action}
+                  <div className="muted small">
+                    {a.effect}
+                    {a.leverMapping.startsWith("derived") ? " · modeled approx." : ""}
+                  </div>
+                  {spec && (
+                    <div className="small setting-line">
+                      Setting: <strong>{spec.text}</strong>
+                      <span className="muted"> · playbook {spec.isDefault ? "default" : `default ${toPercent(spec.default)}%`}</span>
+                    </div>
+                  )}
+                  {a.isPackage ? (
+                    <div className="muted small">
+                      Created by {a.createdBy}
+                      {a.createdAt ? ` · ${when(a.createdAt)}` : ""} · applies to {a.packageRegion} only · decided as a whole
+                    </div>
+                  ) : (
+                    a.leverSource && <div className="muted small">Default source: {a.leverSource}</div>
+                  )}
+                  <div className="action-tags">
+                    {a.isPackage ? (
+                      <span className="tag package" title="A bundle of lever settings proposed as one action">
+                        📦 Custom package
+                      </span>
+                    ) : (
+                      <span className={`tag ${IMPACT_CLASS[a.customerImpact] ?? ""}`} title="Customer impact">
+                        {a.customerImpact === "None" ? "No customer impact" : `${a.customerImpact} impact`}
+                      </span>
+                    )}
+                    <span className={`tag ${a.guardrailPassed ? "lo" : "hi"}`} title={a.guardrailRule}>
+                      {a.guardrailPassed ? "✔ Guardrail ok" : "✖ Breaks guardrail"}
+                    </span>
+                  </div>
+                </td>
+                <td className="num">{usdCompact(a.estimatedWeeklySavingUsd)}</td>
+                <td>
+                  <span className={`status ${STATUS_CLASS[a.status] ?? ""}`}>{a.status}</span>
+                  {a.latestDecisionBy && a.latestDecisionAt && (
+                    <div className="muted small">
+                      by {a.latestDecisionBy} · {when(a.latestDecisionAt)}
+                    </div>
+                  )}
+                  {a.latestDecisionReason && <div className="muted small">“{a.latestDecisionReason}”</div>}
+                  {revision && (
+                    <div className="revision small">
+                      Revision proposed: <strong>{revision.text}</strong> by {revision.by} · {when(revision.at)}
+                      {revision.reason ? ` · “${revision.reason}”` : ""}
+                    </div>
+                  )}
+                </td>
+                <td className="actions">
+                  {rejecting === a.actionId ? (
+                    <span className="reject-form">
+                      <input
+                        autoFocus
+                        placeholder="Reason (required)"
+                        value={reason}
+                        onChange={(e) => setReason(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && reason.trim() && void decide(a.actionId, "reject", reason.trim())}
+                      />
+                      <button className="secondary" disabled={!reason.trim() || busy !== null} onClick={() => decide(a.actionId, "reject", reason.trim())}>
+                        {revision ? "Decline" : a.status === "Approved" ? "Revoke" : "Reject"}
+                      </button>
+                      <button className="link" onClick={() => setRejecting(null)}>
+                        Cancel
+                      </button>
+                    </span>
+                  ) : (
+                    <>
+                      {editable && spec && (
+                        <label className="setting-input" title={`${spec.label}: ${toPercent(spec.min)}% to ${toPercent(spec.max)}%`}>
+                          At{" "}
+                          <input
+                            type="number"
+                            min={toPercent(spec.min)}
+                            max={toPercent(spec.max)}
+                            step={toPercent(spec.step)}
+                            value={Number.isFinite(draft) ? draft : ""}
+                            onChange={(e) => setDrafts((all) => ({ ...all, [a.actionId]: e.target.value === "" ? NaN : Number(e.target.value) }))}
+                            aria-label={`${a.actionId} setting in percent`}
+                          />
+                          %
+                        </label>
+                      )}
+                      {editable && spec && !draftValid && (
+                        <div className="error small">
+                          Use {toPercent(spec.min)}% to {toPercent(spec.max)}%.
+                        </div>
+                      )}
+                      <div className="buttons">
+                        {shown.map((d) => (
+                          <button
+                            key={d}
+                            className={d === "reject" ? "secondary" : "primary"}
+                            disabled={busy !== null || (settingFor(d) !== undefined && !draftValid)}
+                            onClick={() => (d === "reject" ? setRejecting(a.actionId) : decide(a.actionId, d, undefined, settingFor(d)))}
+                            title={
+                              d === "reject" && revision
+                                ? "Decline the revision; the approved setting stays in force"
+                                : d === "reject" && a.status === "Approved"
+                                  ? "Revoke the approval before it is executed"
+                                  : d === "propose" && revising
+                                    ? "Ask Finance for a different setting; the approved one stays in force until Finance decides"
+                                    : undefined
+                            }
+                          >
+                            {busy === a.actionId ? "…" : label(d)}
+                          </button>
+                        ))}
+                        {amendTo && (
+                          <button
+                            className="primary"
+                            disabled={busy !== null || !draftValid}
+                            onClick={() => decide(a.actionId, amendTo, undefined, draft)}
+                            title={a.status === "Approved" ? "Change the approved setting before it is executed" : "Change your proposal"}
+                          >
+                            {busy === a.actionId ? "…" : `Change to ${draft}%`}
+                          </button>
+                        )}
+                      </div>
+                      {shown.length === 0 && <span className="muted small">{waitingHint(a, isFinance) || "No step for you."}</span>}
+                      {shown.length > 0 && waitingHint(a, isFinance) && <div className="muted small">{waitingHint(a, isFinance)}</div>}
+                      {revising && !revision && !changed && spec && (
+                        <div className="muted small">To ask for a different setting, enter it above and propose it.</div>
+                      )}
+                    </>
+                  )}
+                  {rowFeedback && <div className={rowFeedback.error ? "error small" : "ok small"}>{rowFeedback.text}</div>}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      </div>
+      <ExecutionResultsView results={results} />
+      <h3>Decision log</h3>
+      {decisions.length === 0 ? (
+        <p className="muted">No decisions yet.</p>
+      ) : (
+        <ol className="log">
+          {decisions.map((d) => (
+            <li key={d.timestamp + d.actionId + d.decision}>
+              <span className="muted">{when(d.timestamp)}</span> <strong>{d.actionId}</strong> {PAST[d.decision]?.toLowerCase() ?? d.decision}
+              {d.setting != null ? ` at ${toPercent(d.setting)}%` : ""} for {d.region} by {d.actor}
+              {d.reason ? ` - "${d.reason}"` : ""}
+            </li>
+          ))}
+        </ol>
+      )}
+    </section>
+  );
+}
